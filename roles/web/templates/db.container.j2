@@ -1,0 +1,38 @@
+# Managed by Ansible
+[Unit]
+Description=PostgreSQL of {{ service.domain }}
+
+[Container]
+Image={{ service.database.image }}
+# The tag is a rolling major version, so `podman-auto-update.timer`
+# installs the patch releases of PostgreSQL.
+AutoUpdate=registry
+# The apps find the database by this name in the private network
+ContainerName={{ service.user }}-db
+Network={{ service.user }}.network
+# No `PublishPort`: nothing outside the private network needs the database
+Environment=POSTGRES_USER={{ service.database.name }}
+Environment=POSTGRES_DB={{ service.database.name }}
+# Only the password is in a separate file, which nobody except
+# the {{ service.user }} user can read
+EnvironmentFile={{ web_state }}/database/password.env
+# Since PostgreSQL 18 the image keeps the data in /var/lib/postgresql
+Volume={{ service.user }}-db.volume:/var/lib/postgresql
+NoNewPrivileges=true
+# The image has no `HEALTHCHECK`, and we want systemd to see a database
+# which is running but does not answer.
+HealthCmd=pg_isready --username={{ service.database.name }} --dbname={{ service.database.name }}
+HealthInterval=1m
+HealthOnFailure=kill
+
+[Service]
+Restart=always
+RestartSec=5
+# Checking and repairing the files after an unclean stop takes time
+TimeoutStartSec=300
+MemoryMax={{ service.database.memory | default('512M') }}
+CPUQuota={{ service.database.cpu | default('100%') }}
+TasksMax={{ service.database.tasks | default(512) }}
+
+[Install]
+WantedBy=default.target

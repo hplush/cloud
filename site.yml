@@ -17,6 +17,32 @@
       loop_control:
         label: '{{ item | basename }}'
 
+    # A website can run several apps for one user: a web client, a server,
+    # a proxy. Every app has its own domain, image, containers, and deploy.
+    # A simple website is the same thing with a single app, named after
+    # its user. The roles work with this flat list of apps.
+    #
+    # The apps inherit the settings of their website, except `apps` and
+    # `database`, which describe the website and not one of its apps.
+    # `database: true` in an app asks for the database of the website,
+    # and the only app of a simple website always gets it.
+    - name: Collect the apps of every website
+      ansible.builtin.set_fact:
+        web_apps: >-
+          {{ web_apps | default([]) + (
+               [item | dict2items
+                     | rejectattr('key', 'in', ['apps', 'database'])
+                     | items2dict]
+               | product(item.apps | default([{
+                   'name': item.user,
+                   'database': item.database is defined
+                 }]))
+               | map('combine') | list
+             ) }}
+      loop: '{{ web_services }}'
+      loop_control:
+        label: '{{ item.domain }}'
+
   roles:
     # Base system: updates, livepatch, firewall, Podman, users
     - base

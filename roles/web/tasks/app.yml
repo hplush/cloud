@@ -1,0 +1,127 @@
+---
+# The deploy API writes a request to `requests/` and waits for the answer
+# in `results/`. Both users need to write here, so the directories belong
+# to the website user and to the group of the API user.
+- name: Create the deploy directories for {{ app.domain }}
+  ansible.builtin.file:
+    path: '{{ deploy_dir }}/{{ app.domain }}/{{ item }}'
+    state: directory
+    owner: '{{ service.user }}'
+    group: '{{ api_user }}'
+    mode: '0770'
+  loop:
+    - requests
+    - results
+
+- name: Create the state directory of {{ app.domain }}
+  ansible.builtin.file:
+    path: '{{ web_state }}/{{ app.name }}'
+    state: directory
+    owner: '{{ service.user }}'
+    group: '{{ service.user }}'
+    mode: '0755'
+
+- name: Create the blue and green containers for {{ app.domain }}
+  ansible.builtin.template:
+    src: web.container.j2
+    dest: '{{ web_home }}/.config/containers/systemd/{{ app.name }}-{{ color }}.container'
+    owner: '{{ service.user }}'
+    group: '{{ service.user }}'
+    mode: '0644'
+  loop:
+    - blue
+    - green
+  loop_control:
+    loop_var: color
+  register: web_containers
+
+- name: Copy the deploy script for {{ app.domain }}
+  ansible.builtin.template:
+    src: deploy.sh.j2
+    dest: '{{ web_home }}/.local/bin/deploy-{{ app.name }}.sh'
+    owner: '{{ service.user }}'
+    group: '{{ service.user }}'
+    mode: '0755'
+
+- name: Create the deploy units for {{ app.domain }}
+  ansible.builtin.template:
+    src: 'deploy.{{ item }}.j2'
+    dest: '{{ web_home }}/.config/systemd/user/deploy-{{ app.name }}.{{ item }}'
+    owner: '{{ service.user }}'
+    group: '{{ service.user }}'
+    mode: '0644'
+  loop:
+    - service
+    - path
+  register: web_deploy_units
+
+# Ansible sets the color only on the first run. Later it is changed
+# by the deploy script.
+- name: Remember the container serving {{ app.domain }}
+  ansible.builtin.copy:
+    content: "blue\n"
+    dest: '{{ web_state }}/{{ app.name }}/color'
+    owner: '{{ service.user }}'
+    group: '{{ service.user }}'
+    mode: '0644'
+    force: false
+
+- name: Choose the first container for {{ app.domain }}
+  ansible.builtin.copy:
+    content: "reverse_proxy 127.0.0.1:{{ app.ports.blue }}\n"
+    dest: /etc/caddy/upstreams/{{ app.domain }}.caddy
+    owner: '{{ service.user }}'
+    group: '{{ service.user }}'
+    mode: '0644'
+    force: false
+  notify: Reload Caddy
+
+- name: Add the Caddy config for {{ app.domain }}
+  ansible.builtin.template:
+    src: site.caddy.j2
+    dest: /etc/caddy/sites/{{ app.domain }}.caddy
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Reload Caddy
+
+- name: Start the services of {{ app.domain }}
+  become: true
+  become_user: '{{ service.user }}'
+  environment:
+    XDG_RUNTIME_DIR: /run/user/{{ web_uid }}
+  block:
+    # The containers have `Pull=never`, so the image must already be here
+    # before the first start. Later versions come with the deploy.
+    - name: Look for the image on the server for {{ app.domain }}
+      ansible.builtin.command: podman image exists {{ app.image }}
+      register: web_image
+      changed_when: false
+      failed_when: false
+
+    - name: Download the image of {{ app.domain }}
+      ansible.builtin.command: podman pull --quiet {{ app.image }}
+      when: web_image.rc != 0
+      changed_when: true
+
+    # Both containers run all the time: the spare one is warmed up
+    # and ready to take the domain during the next deploy.
+    - name: Start the blue and green containers of {{ app.domain }}
+      ansible.builtin.systemd_service:
+        name: '{{ app.name }}-{{ color }}.service'
+        scope: user
+        state: "{{ 'restarted' if web_containers.changed else 'started' }}"
+        daemon_reload: true
+      loop:
+        - blue
+        - green
+      loop_control:
+        loop_var: color
+
+    - name: Watch for deploy requests for {{ app.domain }}
+      ansible.builtin.systemd_service:
+        name: deploy-{{ app.name }}.path
+        scope: user
+        enabled: true
+        state: "{{ 'restarted' if web_deploy_units.changed else 'started' }}"
+        daemon_reload: true

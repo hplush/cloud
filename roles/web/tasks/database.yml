@@ -1,0 +1,94 @@
+---
+- name: Create the database directory for {{ service.domain }}
+  ansible.builtin.file:
+    path: '{{ web_state }}/database'
+    state: directory
+    owner: '{{ service.user }}'
+    group: '{{ service.user }}'
+    mode: '0700'
+
+# The password never leaves the server and nobody has to type it: Ansible
+# generates it on the first run and keeps the file after it. The database
+# is only in the private network of this user’s containers anyway.
+- name: Create the database password for {{ service.domain }}
+  ansible.builtin.copy:
+    content: "{{ lookup('community.general.random_string', length=32, special=false) }}\n"
+    dest: '{{ web_state }}/database/password'
+    owner: '{{ service.user }}'
+    group: '{{ service.user }}'
+    mode: '0600'
+    force: false
+  no_log: true
+
+- name: Read the database password of {{ service.domain }}
+  ansible.builtin.slurp:
+    src: '{{ web_state }}/database/password'
+  register: web_password
+  no_log: true
+
+# Containers take the password from these files, so it stays out of
+# the unit files, which every user of the server can read.
+- name: Create the database environment files for {{ service.domain }}
+  ansible.builtin.template:
+    src: '{{ item }}.env.j2'
+    dest: '{{ web_state }}/database/{{ item }}.env'
+    owner: '{{ service.user }}'
+    group: '{{ service.user }}'
+    mode: '0600'
+  loop:
+    - password
+    - url
+  no_log: true
+  register: web_database_env
+
+- name: Create the private network for {{ service.domain }}
+  ansible.builtin.template:
+    src: network.j2
+    dest: '{{ web_home }}/.config/containers/systemd/{{ service.user }}.network'
+    owner: '{{ service.user }}'
+    group: '{{ service.user }}'
+    mode: '0644'
+
+- name: Create the database volume for {{ service.domain }}
+  ansible.builtin.template:
+    src: db.volume.j2
+    dest: '{{ web_home }}/.config/containers/systemd/{{ service.user }}-db.volume'
+    owner: '{{ service.user }}'
+    group: '{{ service.user }}'
+    mode: '0644'
+
+- name: Create the database container for {{ service.domain }}
+  ansible.builtin.template:
+    src: db.container.j2
+    dest: '{{ web_home }}/.config/containers/systemd/{{ service.user }}-db.container'
+    owner: '{{ service.user }}'
+    group: '{{ service.user }}'
+    mode: '0644'
+  register: web_database_container
+
+- name: Start the database of {{ service.domain }}
+  become: true
+  become_user: '{{ service.user }}'
+  environment:
+    XDG_RUNTIME_DIR: /run/user/{{ web_uid }}
+  block:
+    # Quadlet creates the network and the volume as dependencies
+    # of this service.
+    - name: Start the database container of {{ service.domain }}
+      ansible.builtin.systemd_service:
+        name: '{{ service.user }}-db.service'
+        scope: user
+        state: >-
+          {{ 'restarted'
+             if web_database_container.changed or web_database_env.changed
+             else 'started' }}
+        daemon_reload: true
+
+    # The database uses a rolling tag like `:18`, so Podman can install
+    # its patch releases without our help.
+    - name: Update the database image automatically for {{ service.domain }}
+      ansible.builtin.systemd_service:
+        name: podman-auto-update.timer
+        scope: user
+        enabled: true
+        state: started

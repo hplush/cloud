@@ -3,9 +3,9 @@
 # A website can answer on several domains. Caddy gets a certificate for
 # every one of them and passes the `Host` header to the container as is,
 # so the image can redirect between them on its own.
-{{ ([service.domain] + (service.aliases | default([]))) | join(', ') }} {
+{{ ([app.domain] + (app.aliases | default([]))) | join(', ') }} {
 	encode zstd gzip
 	# The port of the container serving the domain right now.
 	# The deploy script rewrites this file.
-	import /etc/caddy/upstreams/{{ service.domain }}.caddy
+	import /etc/caddy/upstreams/{{ app.domain }}.caddy
 }

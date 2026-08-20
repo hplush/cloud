@@ -11,13 +11,13 @@
 
 set -uo pipefail
 
-NAME="{{ service.user }}"
-DOMAIN="{{ service.domain }}"
-IMAGE="{{ service.image }}"
-BLUE_PORT="{{ service.ports.blue }}"
-GREEN_PORT="{{ service.ports.green }}"
-HEALTH_PATH="{{ service.health_path | default('/') }}"
-STATE="$HOME/.local/state/website/color"
+NAME="{{ app.name }}"
+DOMAIN="{{ app.domain }}"
+IMAGE="{{ app.image }}"
+BLUE_PORT="{{ app.ports.blue }}"
+GREEN_PORT="{{ app.ports.green }}"
+HEALTH_PATH="{{ app.health_path | default('/') }}"
+STATE="$HOME/.local/state/{{ app.name }}/color"
 UPSTREAM="/etc/caddy/upstreams/$DOMAIN.caddy"
 REQUESTS="{{ deploy_dir }}/$DOMAIN/requests"
 RESULTS="{{ deploy_dir }}/$DOMAIN/results"

@@ -1,13 +1,13 @@
 # Managed by Ansible
 [Unit]
-Description=Wait for deploy requests for {{ service.domain }}
+Description=Wait for deploy requests for {{ app.domain }}
 
 [Path]
 # The deploy API creates a file here after a valid request from GitHub
 # Actions. The deploy script removes the file, so if a request comes while
 # the deploy is running, this unit starts the next one.
-PathExistsGlob={{ deploy_dir }}/{{ service.domain }}/requests/*
-Unit=deploy.service
+PathExistsGlob={{ deploy_dir }}/{{ app.domain }}/requests/*
+Unit=deploy-{{ app.name }}.service
 
 [Install]
 WantedBy=default.target

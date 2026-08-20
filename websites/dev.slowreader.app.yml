@@ -1,0 +1,60 @@
+---
+# Staging of Slow Reader: three apps of the same repository, which share
+# one user and one private network with PostgreSQL.
+user: slowreader
+
+repository: hplush/slowreader
+branch: main
+
+# Only the containers of this website can reach the database: they share
+# a private network, and the database publishes no port to the host.
+database:
+  image: postgres:18
+  name: slowreader
+
+apps:
+  # Web client assets, served by nginx
+  - name: slowreader-web
+    domain: dev.slowreader.app
+    image: ghcr.io/hplush/slowreader-web:dev
+    # Every app has its own workflow, and only that workflow can deploy it.
+    # The web client is built by the general CI workflow of the repository.
+    workflow: main.yml
+    container_port: 8000
+    ports:
+      blue: 8041
+      green: 8042
+    health_path: /favicon.ico
+
+  # CORS proxy, which the web client uses to load RSS feeds
+  - name: slowreader-proxy
+    domain: proxy.dev.slowreader.app
+    image: ghcr.io/hplush/slowreader-proxy:dev
+    workflow: proxy.yml
+    container_port: 5284
+    ports:
+      blue: 8043
+      green: 8044
+    health_path: /health
+    env:
+      PROXY_ORIGIN: ^https:\/\/dev\.slowreader\.app$
+
+  # Server to sync the data between the devices of a user
+  - name: slowreader-server
+    domain: server.dev.slowreader.app
+    image: ghcr.io/hplush/slowreader:dev
+    workflow: server.yml
+    container_port: 2554
+    ports:
+      blue: 8045
+      green: 8046
+    # Adds `DATABASE_URL` and puts the container into the private network
+    database: true
+    # `/health` asks the database, so the deploy waits for a working
+    # connection before it switches the domain to the new container
+    health_path: /health
+    env:
+      # The apps above serve the assets and proxy the feeds, so this
+      # server only syncs the data
+      ASSETS: ''
+      PROXY_ORIGIN: ''

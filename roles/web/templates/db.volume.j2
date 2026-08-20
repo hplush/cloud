@@ -1,0 +1,6 @@
+# Managed by Ansible
+[Unit]
+Description=Database files of {{ service.domain }}
+
+[Volume]
+VolumeName={{ service.user }}-db

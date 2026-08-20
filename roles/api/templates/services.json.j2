@@ -1,11 +1,11 @@
 {
-{% for service in web_services %}
-  "{{ service.domain }}": {
-    "repository": "{{ service.repository }}",
-    "workflow_ref": "{{ service.repository }}/.github/workflows/{{ service.workflow }}@refs/heads/{{ service.branch }}",
-    "ref": "refs/heads/{{ service.branch }}",
-    "requests": "{{ deploy_dir }}/{{ service.domain }}/requests",
-    "results": "{{ deploy_dir }}/{{ service.domain }}/results"
+{% for app in web_apps %}
+  "{{ app.domain }}": {
+    "repository": "{{ app.repository }}",
+    "workflow_ref": "{{ app.repository }}/.github/workflows/{{ app.workflow }}@refs/heads/{{ app.branch }}",
+    "ref": "refs/heads/{{ app.branch }}",
+    "requests": "{{ deploy_dir }}/{{ app.domain }}/requests",
+    "results": "{{ deploy_dir }}/{{ app.domain }}/results"
   }{{ "," if not loop.last else "" }}
 {% endfor %}
 }

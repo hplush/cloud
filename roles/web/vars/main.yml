@@ -1,3 +1,6 @@
 ---
 web_home: /home/{{ service.user }}
 web_uid: '{{ ansible_facts.getent_passwd[service.user][1] }}'
+web_state: '{{ web_home }}/.local/state'
+# The apps of the website this role was included for
+web_service_apps: "{{ web_apps | selectattr('user', 'equalto', service.user) | list }}"

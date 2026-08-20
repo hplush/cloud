@@ -1,14 +1,30 @@
 # Managed by Ansible
 [Unit]
-Description={{ service.domain }} ({{ color }} container)
+Description={{ app.domain }} ({{ color }} container)
+{% if app.database | default(false) %}
+After={{ service.user }}-db.service
+{% endif %}
 
 [Container]
-Image={{ service.image }}
+Image={{ app.image }}
 # Only the deploy script downloads images. Without this the container
 # could pick up a new `:latest` on a restart, and the server would run
 # a version which nobody deployed.
 Pull=never
-PublishPort=127.0.0.1:{{ service.ports[color] }}:{{ service.container_port }}
+PublishPort=127.0.0.1:{{ app.ports[color] }}:{{ app.container_port }}
+{% if app.database | default(false) %}
+# The private network with the database. The app takes `DATABASE_URL`
+# with the password from the file, so it stays out of this unit.
+Network={{ service.user }}.network
+EnvironmentFile={{ web_state }}/database/url.env
+{% endif %}
+{% for name, value in (app.env | default({})).items() %}
+{% if loop.first %}
+# Settings from the website config. Podman unescapes C-style escapes
+# in these values, so every backslash is doubled here.
+{% endif %}
+Environment="{{ name }}={{ value | replace('\\', '\\\\') | replace('"', '\\"') }}"
+{% endfor %}
 # A website serves files: it needs no capability, and Podman mounts
 # a tmpfs over /run, /tmp, and /var/tmp for a read-only image anyway.
 # An image which writes somewhere else should write to /tmp instead.
@@ -28,9 +44,9 @@ RestartSec=5
 TimeoutStartSec=300
 # One website should not take the whole server down with it. The container
 # lives in the cgroup of this unit, so these limits apply to it.
-MemoryMax={{ service.memory | default('512M') }}
-CPUQuota={{ service.cpu | default('100%') }}
-TasksMax={{ service.tasks | default(512) }}
+MemoryMax={{ app.memory | default('512M') }}
+CPUQuota={{ app.cpu | default('100%') }}
+TasksMax={{ app.tasks | default(512) }}
 
 [Install]
 WantedBy=default.target

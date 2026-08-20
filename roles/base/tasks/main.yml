@@ -6,6 +6,8 @@
 - name: Install system packages
   ansible.builtin.apt:
     name:
+      # DNS between the containers in the private network of a website
+      - aardvark-dns
       - acl
       - ca-certificates
       - curl
@@ -17,6 +19,8 @@
       # Restarts the services which still use an updated library,
       # so we don’t have to reboot for it
       - needrestart
+      # Podman needs it for the private network of a website
+      - netavark
       - passt
       - podman
       # Ansible needs it to add the Caddy repository

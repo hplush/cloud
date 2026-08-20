@@ -24,7 +24,8 @@ It is based on:
 
 Each service is a systemd service with auto-restart.
 
-We use a separate user for each website.
+We use a separate user for each website. A website can run several apps
+under this user. Every app has its own image, containers, domain, and deploy.
 
 ### Web Service
 
@@ -45,6 +46,10 @@ The request waits until the deploy finishes and answers with its log, so a broke
 Databases and tools like Redis are Podman containers as well.
 
 We use rolling tags like `:9` and update them automatically with Podman tools.
+
+A database belongs to one website and publishes no port to the host. It only
+listens in a private Podman network, which is inside the network namespace of
+the website’s user.
 
 ### Internal Web API
 
@@ -144,7 +149,9 @@ so HTTPS only works after the DNS is ready.
 ### Deploy a Website from GitHub Actions
 
 After publishing a new image, ask GitHub for an OIDC token and call
-the deploy API:
+the deploy API. The endpoint is the domain of the app, and the API accepts
+the request only from the workflow in its config, so every app deploys
+on its own:
 
 ```yaml
 permissions:
@@ -173,8 +180,18 @@ Services run as separate users, so their logs are in the system journal:
 ```sh
 sudo journalctl -u caddy
 sudo journalctl _SYSTEMD_USER_UNIT=api.service
-sudo journalctl _SYSTEMD_USER_UNIT=deploy.service
+sudo journalctl _SYSTEMD_USER_UNIT=deploy-hplush.service
 sudo journalctl _SYSTEMD_USER_UNIT=hplush-blue.service
+sudo journalctl _SYSTEMD_USER_UNIT=slowreader-db.service
+```
+
+The units are named after the app, so an app named `slowreader-server` has
+`slowreader-server-blue.service` and `deploy-slowreader-server.service`.
+
+To open the database of a website:
+
+```sh
+sudo -u slowreader podman exec -it slowreader-db psql -U slowreader
 ```
 
 To deploy manually, create the request file, which the website is waiting for:

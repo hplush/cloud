@@ -1,0 +1,9 @@
+# Managed by Ansible
+[Unit]
+Description=Private network of {{ service.domain }}
+
+[Network]
+# Rootless Podman keeps this network inside the network namespace of
+# the {{ service.user }} user: no other user and no process on the host
+# can reach the containers in it.
+NetworkName={{ service.user }}
