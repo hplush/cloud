@@ -1,0 +1,24 @@
+---
+user: sitnik
+
+image: ghcr.io/ai/sitnik.es:latest
+repository: ai/sitnik.es
+workflow: ci.yml
+branch: main
+
+# The image chooses the language and redirects `www.` and `.ru` visitors
+# by the `Host` header, so every domain goes to the same container.
+aliases:
+  - sitnik.ru
+  - en.sitnik.es
+  - ru.sitnik.es
+  - friday.sitnik.es
+  - www.sitnik.es
+
+container_port: 8000
+ports:
+  blue: 8031
+  green: 8032
+# `/` answers with a redirect to the language, so we check the same path
+# as the `HEALTHCHECK` of the image
+health_path: /en/

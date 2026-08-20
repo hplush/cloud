@@ -137,7 +137,9 @@ Every container gets 512 MB of memory, one CPU, and 512 processes, and a
 read-only file system with a writable `/tmp`. A website which needs more
 can change `memory`, `cpu`, or `tasks` in its config.
 
-Then deploy changes.
+Add `A` and `AAAA` DNS records for the domain to the server, and then deploy
+changes. Caddy asks Let's Encrypt for the certificate on the first request,
+so HTTPS only works after the DNS is ready.
 
 ### Deploy a Website from GitHub Actions
 
