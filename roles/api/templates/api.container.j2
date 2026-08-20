@@ -16,6 +16,9 @@ Volume={{ api_home }}/app:/app:ro
 Volume={{ deploy_dir }}:{{ deploy_dir }}:rw
 ReadOnly=true
 Tmpfs=/tmp
+# The server only reads files, writes deploy requests, and answers HTTP
+# on a port above 1024: it needs no capability at all.
+DropCapability=all
 NoNewPrivileges=true
 # The image runs as its own non-root user, but rootless Podman would map it
 # to a subordinate ID, and the container could not write deploy requests.
@@ -23,10 +26,19 @@ NoNewPrivileges=true
 UserNS=keep-id:uid=65532,gid=65532
 HealthCmd=node /app/health.mjs
 HealthInterval=1m
+# `Restart=always` alone only covers a crash, while the server can also hang
+# on a stuck deploy: `kill` stops such a container, and systemd starts it again.
+HealthOnFailure=kill
 
 [Service]
 Restart=always
 RestartSec=5
+# The API waits for deploys and does little else, so it needs far less than
+# a website. The container lives in the cgroup of this unit, so these limits
+# apply to it.
+MemoryMax=256M
+CPUQuota=100%
+TasksMax=128
 
 [Install]
 WantedBy=default.target

@@ -3,6 +3,8 @@ user: browserslist
 
 image: ghcr.io/browserslist/browsersl.ist:latest
 repository: browserslist/browsersl.ist
+workflow: ci.yml
+branch: main
 
 container_port: 8080
 ports:

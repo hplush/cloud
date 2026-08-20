@@ -130,8 +130,8 @@ serves the domain.
 ## Add a Website
 
 Copy `websites/hplush.dev.yml` to `websites/YOUR_DOMAIN.yml` and set the user,
-the image, the GitHub repository allowed to deploy it, the port the image
-listens on, and a free pair of host ports.
+the image, the GitHub repository, workflow, and branch allowed to deploy it,
+the port the image listens on, and a free pair of host ports.
 
 Every container gets 512 MB of memory, one CPU, and 512 processes, and a
 read-only file system with a writable `/tmp`. A website which needs more

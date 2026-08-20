@@ -3,6 +3,8 @@ user: hplush
 
 image: ghcr.io/hplush/hplush.dev:latest
 repository: hplush/hplush.dev
+workflow: deploy.yml
+branch: main
 
 container_port: 8000
 ports:

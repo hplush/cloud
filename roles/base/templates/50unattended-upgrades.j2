@@ -1,9 +1,18 @@
 // Managed by Ansible
 
-// Websites here are not critical, so we prefer fresh packages over
-// a controlled update schedule and upgrade everything, not only security.
+// Websites here are not critical, so we prefer fresh Ubuntu packages and
+// Caddy over a controlled update schedule. Keep this list explicit so adding
+// another APT repository does not silently authorize unattended upgrades
+// from it as well.
 Unattended-Upgrade::Origins-Pattern {
-    "origin=*";
+    "origin=Ubuntu,archive=${distro_codename},label=Ubuntu";
+    "origin=Ubuntu,archive=${distro_codename}-updates,label=Ubuntu";
+    "origin=Ubuntu,archive=${distro_codename}-security,label=Ubuntu";
+    // Ubuntu Pro moves the security updates of the older packages here
+    "origin=UbuntuESMApps,archive=${distro_codename}-apps-security";
+    "origin=UbuntuESM,archive=${distro_codename}-infra-security";
+    // The Caddy repository serves one suite for every Debian and Ubuntu
+    "origin=cloudsmith/caddy/stable,archive=any-version";
 };
 
 Unattended-Upgrade::Remove-Unused-Kernel-Packages "true";

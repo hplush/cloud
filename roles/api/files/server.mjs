@@ -154,6 +154,12 @@ async function route(req) {
   if (token.repository !== service.repository) {
     throw new HttpError(403, `${token.repository} can’t deploy ${domain}`)
   }
+  if (token.workflow_ref !== service.workflow_ref) {
+    throw new HttpError(403, `${token.workflow_ref} can’t deploy ${domain}`)
+  }
+  if (token.ref !== service.ref) {
+    throw new HttpError(403, `${token.ref} can’t deploy ${domain}`)
+  }
 
   let id = crypto.randomUUID()
   await writeFile(

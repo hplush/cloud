@@ -35,9 +35,19 @@ done
 log=$(mktemp)
 
 report() {
-  if [ "${#ids[@]}" -gt 0 ]; then
+  if [ "{{ '${#ids[@]}' }}" -gt 0 ]; then
     for id in "${ids[@]}"; do
-      { echo "$1"; cat "$log"; } > "$RESULTS/$id"
+      # The API polls for this file. Publish it with one rename so it can
+      # never read a status line or log which is only partly written.
+      if result=$(mktemp "$RESULTS/.result.XXXXXX"); then
+        { echo "$1"; cat "$log"; } > "$result"
+        chmod 0644 "$result"
+        mv --force -- "$result" "$RESULTS/$id"
+      else
+        # No answer at all would hold the workflow until the API gives up
+        # minutes later, so a torn read is still better than no file
+        { echo "$1"; cat "$log"; } > "$RESULTS/$id"
+      fi
     done
   fi
   # Nobody is waiting for the answer to a request which was made by hand
