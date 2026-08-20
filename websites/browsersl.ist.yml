@@ -1,0 +1,11 @@
+---
+user: browserslist
+
+image: ghcr.io/browserslist/browsersl.ist:latest
+repository: browserslist/browsersl.ist
+
+container_port: 8080
+ports:
+  blue: 8021
+  green: 8022
+health_path: /health
