@@ -2,7 +2,8 @@
 
 Small hosting for non-critical websites such as:
 
-1. Development preview of [Slow Reader](github.com/hplush/slowreader).
+1. [h+h lab landing](https://hplush.dev/)
+1. Development preview of [Slow Reader](github.com/hplush/slowreader)
 2. [Browserslist REPL](https://browsersl.ist/)
 3. [Sitnik personal website](https://sitnik.es/)
 
