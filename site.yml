@@ -1,0 +1,35 @@
+---
+- name: Configure h+h lab cloud server
+  hosts: all
+  become: true
+
+  pre_tasks:
+    # Every website has its own config in `websites/`, and the file name
+    # is the domain. All roles use the `web_services` list from them.
+    - name: Read the config of every website
+      ansible.builtin.set_fact:
+        web_services: >-
+          {{ web_services | default([]) + [
+               lookup('ansible.builtin.file', item) | from_yaml
+               | combine({'domain': item | basename | splitext | first})
+             ] }}
+      loop: "{{ query('ansible.builtin.fileglob', playbook_dir ~ '/websites/*.yml') | sort }}"
+      loop_control:
+        label: '{{ item | basename }}'
+
+  roles:
+    # Base system: updates, livepatch, firewall, Podman, users
+    - base
+    # Caddy as a balancer in front of all services
+    - caddy
+    # Internal web API, which GitHub Actions calls to deploy new images
+    - api
+
+  tasks:
+    - name: Configure web services
+      ansible.builtin.include_role:
+        name: web
+      loop: '{{ web_services }}'
+      loop_control:
+        loop_var: service
+        label: '{{ service.domain }}'

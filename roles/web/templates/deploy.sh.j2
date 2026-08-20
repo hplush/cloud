@@ -1,0 +1,119 @@
+#!/usr/bin/env bash
+# Managed by Ansible
+#
+# Starts the new image in the container, which does not serve the domain
+# right now, and switches Caddy to it only after a successful health check.
+# A broken image never replaces the working one.
+#
+# The deploy API waits for the answer, so we save the status and the log
+# to a file named after the request. Without it GitHub Actions would see
+# a successful workflow even for an image which never started.
+
+set -uo pipefail
+
+NAME="{{ service.user }}"
+DOMAIN="{{ service.domain }}"
+IMAGE="{{ service.image }}"
+BLUE_PORT="{{ service.ports.blue }}"
+GREEN_PORT="{{ service.ports.green }}"
+HEALTH_PATH="{{ service.health_path | default('/') }}"
+STATE="$HOME/.local/state/website/color"
+UPSTREAM="/etc/caddy/upstreams/$DOMAIN.caddy"
+REQUESTS="{{ deploy_dir }}/$DOMAIN/requests"
+RESULTS="{{ deploy_dir }}/$DOMAIN/results"
+
+# Take every request which is already here and remove it right away, so
+# a request which comes during the deploy will start the deploy again.
+# One run answers all of them: they ask for the same image anyway.
+ids=()
+for request in "$REQUESTS"/*; do
+  [ -e "$request" ] || continue
+  ids+=("$(basename "$request")")
+  rm -f "$request"
+done
+
+log=$(mktemp)
+
+report() {
+  if [ "${#ids[@]}" -gt 0 ]; then
+    for id in "${ids[@]}"; do
+      { echo "$1"; cat "$log"; } > "$RESULTS/$id"
+    done
+  fi
+  # Nobody is waiting for the answer to a request which was made by hand
+  # or whose workflow has already given up
+  find "$RESULTS" -type f -mmin +60 -delete
+  # The journal is the only place to read the log of a manual deploy
+  cat "$log"
+  rm -f "$log"
+}
+
+# systemd kills the deploy after `TimeoutStartSec`, and even then
+# the API should get an answer instead of waiting for its own timeout
+trap 'report fail; exit 1' INT TERM
+
+(
+  set -e
+
+  current=$(cat "$STATE")
+  if [ "$current" = "blue" ]; then
+    next="green"
+    next_port="$GREEN_PORT"
+  else
+    next="blue"
+    next_port="$BLUE_PORT"
+  fi
+
+  # `:latest` says nothing about the version half a year later, so we write
+  # down which digest the tag pointed to before and after the pull
+{% raw %}
+  digest() {
+    podman image inspect --format '{{ .Digest }}' "$IMAGE" 2>/dev/null ||
+      echo none
+  }
+{% endraw %}
+  echo "Starting $IMAGE in the $next container"
+  old_digest=$(digest)
+  podman pull --quiet "$IMAGE"
+  new_digest=$(digest)
+  echo "Image $old_digest -> $new_digest"
+  systemctl --user restart "$NAME-$next.service"
+
+  echo "Waiting for the health check on port $next_port"
+  healthy=no
+  for _ in $(seq 1 60); do
+    if curl --silent --fail --max-time 2 --output /dev/null \
+      "http://127.0.0.1:$next_port$HEALTH_PATH"
+    then
+      healthy=yes
+      break
+    fi
+    sleep 1
+  done
+
+  if [ "$healthy" = "no" ]; then
+    echo "The new image does not answer, $DOMAIN keeps the $current one" >&2
+    systemctl --user stop "$NAME-$next.service"
+    exit 1
+  fi
+
+  echo "Switching $DOMAIN to the $next container"
+  echo "reverse_proxy 127.0.0.1:$next_port" > "$UPSTREAM"
+  sudo systemctl reload caddy.service
+  echo "$next" > "$STATE"
+
+  # Move the previous container to the new image as well. It will be warm
+  # and ready for the next deploy and for the server reboot.
+  systemctl --user restart "$NAME-$current.service"
+
+  echo "$DOMAIN is running $new_digest"
+) > "$log" 2>&1
+status=$?
+
+if [ "$status" -eq 0 ]; then
+  report ok
+else
+  report fail
+fi
+
+exit "$status"

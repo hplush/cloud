@@ -1,0 +1,37 @@
+---
+# Personal accounts with sudo for the people who maintain the server.
+# Everybody applies the playbook as themselves, so the journal and
+# `sudo` logs show who made the change.
+admins:
+  - ai
+
+# Email for Let's Encrypt notifications
+caddy_email: andrey@sitnik.es
+
+# Token from https://ubuntu.com/pro to enable Canonical Livepatch
+# and automatic security updates.
+# Keep it encrypted (the password is in the local .vault-pass file):
+#   ansible-vault encrypt_string --name ubuntu_pro_token 'C1…'
+# An empty value skips Livepatch.
+ubuntu_pro_token: !vault |
+  $ANSIBLE_VAULT;1.1;AES256
+  35343564306266316330663939353165343462326230396630666461656630613062646634323331
+  6234656233356466313931633662663937396436383963370a353337343961643661663232333564
+  39666237343237336465313132393332646438396265613862623865643964616636383166363331
+  3932623061653534630a316262653331663035623564356538356333373635393938363264323733
+  32313865643538626638623234646431613361636266313935356564396164303264
+
+# Internal web API, which GitHub Actions calls after publishing a new image
+api_user: api
+api_domain: api.cloud.hplush.dev
+api_port: 8000
+# Hardened Node.js image from Red Hat (Project Hummingbird). The tag is
+# a rolling major version, updated automatically by podman-auto-update.
+api_node_image: registry.access.redhat.com/hi/nodejs:26
+# GitHub Actions must ask for an OIDC token with exactly this audience
+api_audience: https://api.cloud.hplush.dev
+
+# GitHub Actions deploy requests are passed to website users through this
+# directory: the deploy API writes a trigger file, the website user’s
+# systemd path unit reacts to it.
+deploy_dir: /var/lib/deploy

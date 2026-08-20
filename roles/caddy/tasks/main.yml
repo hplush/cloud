@@ -1,0 +1,88 @@
+---
+# The official repository allows unattended-upgrades to update Caddy
+- name: Add the Caddy repository
+  ansible.builtin.deb822_repository:
+    name: caddy-stable
+    types: deb
+    uris: https://dl.cloudsmith.io/public/caddy/stable/deb/debian
+    suites: any-version
+    components: main
+    signed_by: https://dl.cloudsmith.io/public/caddy/stable/gpg.key
+    state: present
+    enabled: true
+  register: caddy_repository
+
+- name: Install Caddy
+  ansible.builtin.apt:
+    name: caddy
+    state: present
+    update_cache: '{{ caddy_repository.changed }}'
+
+# The default admin API listens on `127.0.0.1:2019` and can replace
+# the whole config. `RuntimeDirectory` gives Caddy a private place
+# for the socket we use instead.
+- name: Give Caddy a private directory for the admin socket
+  ansible.builtin.file:
+    path: /etc/systemd/system/caddy.service.d
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Move the admin socket out of the shared loopback interface
+  ansible.builtin.copy:
+    src: 10-runtime-dir.conf
+    dest: /etc/systemd/system/caddy.service.d/10-runtime-dir.conf
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Restart Caddy
+
+- name: Create the directories for service configs
+  ansible.builtin.file:
+    path: '{{ item }}'
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  loop:
+    # Domain configs, which only Ansible changes
+    - /etc/caddy/sites
+    # Current container port of every website. A website user rewrites
+    # its own file during the deploy.
+    - /etc/caddy/upstreams
+
+- name: Keep the site directory non-empty for the config glob
+  ansible.builtin.copy:
+    src: 00-placeholder.caddy
+    dest: /etc/caddy/sites/00-placeholder.caddy
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Reload Caddy
+
+- name: Configure Caddy
+  ansible.builtin.template:
+    src: Caddyfile.j2
+    dest: /etc/caddy/Caddyfile
+    owner: root
+    group: caddy
+    mode: '0644'
+  notify: Reload Caddy
+
+# The deploy script switches the domain to the new container and asks
+# Caddy to pick up the change.
+- name: Allow website users to reload Caddy
+  ansible.builtin.copy:
+    src: caddy-reload
+    dest: /etc/sudoers.d/caddy-reload
+    owner: root
+    group: root
+    mode: '0440'
+    validate: /usr/sbin/visudo --check --file %s
+
+- name: Start Caddy
+  ansible.builtin.systemd_service:
+    name: caddy.service
+    enabled: true
+    state: started

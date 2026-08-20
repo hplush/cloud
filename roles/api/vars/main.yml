@@ -1,0 +1,3 @@
+---
+api_home: /home/{{ api_user }}
+api_uid: '{{ ansible_facts.getent_passwd[api_user][1] }}'

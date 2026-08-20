@@ -1,0 +1,25 @@
+---
+- name: Restart SSH
+  ansible.builtin.systemd_service:
+    name: ssh.service
+    state: restarted
+
+- name: Restart fail2ban
+  ansible.builtin.systemd_service:
+    name: fail2ban.service
+    state: restarted
+
+# Podman caches the ID mapping and needs to be told that the ranges changed
+- name: Migrate Podman storage
+  ansible.builtin.command: podman system migrate
+  become: true
+  become_user: '{{ item }}'
+  environment:
+    XDG_RUNTIME_DIR: /run/user/{{ ansible_facts.getent_passwd[item][1] }}
+  loop: '{{ base_service_users }}'
+  changed_when: true
+
+- name: Restart journald
+  ansible.builtin.systemd_service:
+    name: systemd-journald.service
+    state: restarted

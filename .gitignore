@@ -1,0 +1,4 @@
+# Password for Ansible Vault. It should never leave your machine.
+/.vault-pass
+# Ansible CLI, installed by .devcontainer.json
+/.venv

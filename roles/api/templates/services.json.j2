@@ -1,0 +1,9 @@
+{
+{% for service in web_services %}
+  "{{ service.domain }}": {
+    "repository": "{{ service.repository }}",
+    "requests": "{{ deploy_dir }}/{{ service.domain }}/requests",
+    "results": "{{ deploy_dir }}/{{ service.domain }}/results"
+  }{{ "," if not loop.last else "" }}
+{% endfor %}
+}

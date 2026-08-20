@@ -1,0 +1,2 @@
+# Managed by Ansible
+%web ALL=(root) NOPASSWD: /usr/bin/systemctl reload caddy.service

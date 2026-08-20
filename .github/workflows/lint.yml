@@ -1,0 +1,27 @@
+name: Lint
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  ansible-lint:
+    name: Ansible Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.x'
+      - name: Install the linter with Ansible
+        run: pip install -r requirements.txt
+      - name: Install the collections used by the playbook
+        run: ansible-galaxy collection install -r requirements.yml
+      - name: Create a fake Ansible Vault password
+        run: echo lint > .vault-pass
+      - name: Lint
+        run: ansible-lint

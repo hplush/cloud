@@ -1,0 +1,7 @@
+# Managed by Ansible
+{{ service.domain }} {
+	encode zstd gzip
+	# The port of the container serving the domain right now.
+	# The deploy script rewrites this file.
+	import /etc/caddy/upstreams/{{ service.domain }}.caddy
+}

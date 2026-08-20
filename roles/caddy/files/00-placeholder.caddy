@@ -1,0 +1,4 @@
+# Managed by Ansible
+#
+# Caddyfile imports this directory by a glob pattern, and the pattern must
+# match at least one file even before we add the first website here.

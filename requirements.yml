@@ -1,0 +1,5 @@
+---
+collections:
+  # ufw module for the firewall
+  - name: community.general
+    version: 13.3.0

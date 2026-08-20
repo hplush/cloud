@@ -1,3 +1,7 @@
 {
-  "image": "ghcr.io/ai/devcontainer:latest"
+  "image": "ghcr.io/ai/devcontainer:latest",
+  "postCreateCommand": "python3 -m venv .venv && .venv/bin/pip install --quiet -r requirements.txt && .venv/bin/ansible-galaxy collection install -r requirements.yml",
+  "remoteEnv": {
+    "PATH": "${containerWorkspaceFolder}/.venv/bin:${containerEnv:PATH}"
+  }
 }

@@ -1,0 +1,10 @@
+# Managed by Ansible
+[sshd]
+enabled  = true
+port     = ssh
+logpath  = %(sshd_log)s
+backend  = %(sshd_backend)s
+mode     = aggressive
+maxretry = 3
+findtime = 1h
+bantime  = 24h

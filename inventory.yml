@@ -1,0 +1,7 @@
+---
+all:
+  hosts:
+    cloud:
+      ansible_host: cloud.hplush.dev
+      # Without `ansible_user` every admin connects as themselves: SSH takes
+      # the name from `~/.ssh/config`, or from the `--user` option.

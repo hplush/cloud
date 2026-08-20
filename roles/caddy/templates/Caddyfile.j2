@@ -1,0 +1,12 @@
+# Managed by Ansible
+{
+	# The admin API can replace the whole config, and every website has
+	# its own user on this server, so we move the API from the default
+	# `127.0.0.1:2019` to a socket inside the private `/run/caddy/`.
+	# `caddy reload` reads this address from the config, so the reload
+	# from the deploy script keeps working.
+	admin unix//run/caddy/admin.sock
+	email {{ caddy_email }}
+}
+
+import /etc/caddy/sites/*.caddy

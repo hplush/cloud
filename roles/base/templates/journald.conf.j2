@@ -1,0 +1,8 @@
+# Managed by Ansible
+[Journal]
+# All the services log to the journal, and the server has a small disk.
+# These logs are only for debugging, so we cap them instead of watching
+# the free space.
+SystemMaxUse=500M
+SystemMaxFileSize=50M
+MaxRetentionSec=1month

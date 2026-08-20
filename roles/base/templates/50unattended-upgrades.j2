@@ -1,0 +1,20 @@
+// Managed by Ansible
+
+// Websites here are not critical, so we prefer fresh packages over
+// a controlled update schedule and upgrade everything, not only security.
+Unattended-Upgrade::Origins-Pattern {
+    "origin=*";
+};
+
+Unattended-Upgrade::Remove-Unused-Kernel-Packages "true";
+Unattended-Upgrade::Remove-Unused-Dependencies "true";
+
+// We want as little downtime as possible, so the server never reboots
+// on its own. Livepatch fixes the running kernel, and `needrestart`
+// restarts the few services which still hold an old library, so an update
+// takes effect without a reboot.
+//
+// A reboot is still needed to switch to a new kernel. The login message
+// shows it as `*** System restart required ***`, and we do it by hand
+// during a calm hour.
+Unattended-Upgrade::Automatic-Reboot "false";

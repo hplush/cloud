@@ -1,0 +1,36 @@
+# Managed by Ansible
+[Unit]
+Description={{ service.domain }} ({{ color }} container)
+
+[Container]
+Image={{ service.image }}
+# Only the deploy script downloads images. Without this the container
+# could pick up a new `:latest` on a restart, and the server would run
+# a version which nobody deployed.
+Pull=never
+PublishPort=127.0.0.1:{{ service.ports[color] }}:{{ service.container_port }}
+# A website serves files: it needs no capability, and Podman mounts
+# a tmpfs over /run, /tmp, and /var/tmp for a read-only image anyway.
+# An image which writes somewhere else should write to /tmp instead.
+ReadOnly=true
+DropCapability=all
+NoNewPrivileges=true
+# All our images define a `HEALTHCHECK`, and Podman runs it on its own.
+# `Restart=always` alone only covers a crash, while an application can also
+# hang: `kill` stops such a container, and systemd starts it again.
+HealthOnFailure=kill
+
+[Service]
+Restart=always
+RestartSec=5
+# The image is already on the disk, but the application inside it
+# can take a while to be ready
+TimeoutStartSec=300
+# One website should not take the whole server down with it. The container
+# lives in the cgroup of this unit, so these limits apply to it.
+MemoryMax={{ service.memory | default('512M') }}
+CPUQuota={{ service.cpu | default('100%') }}
+TasksMax={{ service.tasks | default(512) }}
+
+[Install]
+WantedBy=default.target

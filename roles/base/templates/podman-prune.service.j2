@@ -1,0 +1,10 @@
+# Managed by Ansible
+[Unit]
+Description=Remove the images left from the previous deploys
+
+[Service]
+Type=oneshot
+# Every deploy pulls a new image under the same tag, and the previous one
+# stays on the disk without a tag. Podman skips the images which some
+# container still uses, and `until` keeps the freshly pulled ones.
+ExecStart=/usr/bin/podman image prune --force --filter until=24h

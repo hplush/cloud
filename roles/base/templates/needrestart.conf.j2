@@ -1,0 +1,12 @@
+# Managed by Ansible
+#
+# A library update only takes effect when the processes which loaded
+# the old version restart. `needrestart` finds them after every `apt` run.
+# `a` restarts them without asking: the alternative is an interactive
+# question, which would hang the automatic updates.
+#
+# Containers don’t use the libraries of the host, so this only ever touches
+# Caddy, `sshd`, and `fail2ban`.
+$nrconf{restart} = 'a';
+
+1;

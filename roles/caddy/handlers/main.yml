@@ -1,0 +1,24 @@
+---
+# A broken config would stop Caddy for all the websites, so we check
+# it before reloading.
+- name: Validate the Caddy config
+  ansible.builtin.command: caddy validate --adapter caddyfile --config /etc/caddy/Caddyfile
+  changed_when: false
+  listen:
+    - Reload Caddy
+    - Restart Caddy
+
+# Handlers run in this order, so a change which needs both ends up
+# with a restart on the new config and a harmless reload after it.
+- name: Restart Caddy
+  ansible.builtin.systemd_service:
+    name: caddy.service
+    state: restarted
+    daemon_reload: true
+
+# Reload is graceful: Caddy finishes the current requests on the old config
+- name: Reload Caddy
+  ansible.builtin.systemd_service:
+    name: caddy.service
+    state: reloaded
+  listen: Reload Caddy

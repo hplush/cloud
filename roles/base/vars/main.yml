@@ -1,0 +1,4 @@
+---
+base_web_users: "{{ web_services | map(attribute='user') | list }}"
+# Every service has its own user to run rootless Podman containers
+base_service_users: '{{ base_web_users + [api_user] }}'

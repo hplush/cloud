@@ -1,0 +1,251 @@
+---
+- name: Set the server timezone to UTC
+  community.general.timezone:
+    name: Etc/UTC
+
+- name: Install system packages
+  ansible.builtin.apt:
+    name:
+      - acl
+      - ca-certificates
+      - curl
+      - dbus-user-session
+      # Prevents SSH brute-force
+      - fail2ban
+      # Console editor for rare manual debugging on the server
+      - micro
+      # Restarts the services which still use an updated library,
+      # so we don’t have to reboot for it
+      - needrestart
+      - passt
+      - podman
+      # Ansible needs it to add the Caddy repository
+      - python3-debian
+      # Livepatch
+      - ubuntu-pro-client
+      - ufw
+      - uidmap
+      - unattended-upgrades
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Set bash settings for the admins
+  ansible.builtin.blockinfile:
+    path: /home/{{ item }}/.bashrc
+    block: "{{ lookup('ansible.builtin.template', 'bashrc.j2') }}"
+    marker: '# {mark} ANSIBLE MANAGED BLOCK'
+    owner: '{{ item }}'
+    group: '{{ item }}'
+    mode: '0644'
+    create: true
+  loop: '{{ admins }}'
+
+- name: Configure automatic updates
+  ansible.builtin.template:
+    src: '{{ item }}.j2'
+    dest: /etc/apt/apt.conf.d/{{ item }}
+    owner: root
+    group: root
+    mode: '0644'
+  loop:
+    - 20auto-upgrades
+    - 50unattended-upgrades
+
+- name: Restart the updated services without asking
+  ansible.builtin.template:
+    src: needrestart.conf.j2
+    dest: /etc/needrestart/conf.d/99-automatic.conf
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Enable automatic updates
+  ansible.builtin.systemd_service:
+    name: unattended-upgrades.service
+    enabled: true
+    state: started
+
+- name: Limit the size of the system journal
+  ansible.builtin.file:
+    path: /etc/systemd/journald.conf.d
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Configure the journal limits
+  ansible.builtin.template:
+    src: journald.conf.j2
+    dest: /etc/systemd/journald.conf.d/99-limits.conf
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Restart journald
+
+- name: Enable Canonical Livepatch
+  when: ubuntu_pro_token | length > 0
+  block:
+    - name: Check Ubuntu Pro status
+      ansible.builtin.command: pro status --format json
+      register: base_pro_status
+      changed_when: false
+
+    - name: Attach the server to Ubuntu Pro
+      ansible.builtin.command: pro attach {{ ubuntu_pro_token }}
+      when: not (base_pro_status.stdout | from_json).attached
+      changed_when: true
+      no_log: true
+
+    - name: Enable the Livepatch service
+      ansible.builtin.command: pro enable livepatch --assume-yes
+      register: base_livepatch
+      changed_when: base_livepatch.rc == 0
+      failed_when: >-
+        base_livepatch.rc != 0 and
+        'already enabled' not in base_livepatch.stdout + base_livepatch.stderr
+
+- name: Allow only SSH keys for login
+  ansible.builtin.template:
+    src: 99-hardening.conf.j2
+    dest: /etc/ssh/sshd_config.d/99-hardening.conf
+    owner: root
+    group: root
+    mode: '0644'
+    validate: /usr/sbin/sshd -T -f %s
+  notify: Restart SSH
+
+- name: Ban IPs with too many SSH login attempts
+  ansible.builtin.template:
+    src: jail.local.j2
+    dest: /etc/fail2ban/jail.local
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Restart fail2ban
+
+- name: Enable fail2ban
+  ansible.builtin.systemd_service:
+    name: fail2ban.service
+    enabled: true
+    state: started
+
+- name: Open the SSH and web ports
+  community.general.ufw:
+    rule: allow
+    port: '{{ item.port }}'
+    proto: '{{ item.proto }}'
+  loop:
+    - port: '22'
+      proto: tcp
+    - port: '80'
+      proto: tcp
+    - port: '443'
+      proto: tcp
+    # Caddy serves HTTP/3 on the same port, and QUIC works over UDP.
+    # Without this rule browsers try QUIC, time out, and fall back to TCP.
+    - port: '443'
+      proto: udp
+  loop_control:
+    label: '{{ item.proto }}/{{ item.port }}'
+
+- name: Close all the other ports
+  community.general.ufw:
+    state: enabled
+    policy: deny
+    direction: incoming
+
+- name: Create a group for website users
+  ansible.builtin.group:
+    name: web
+    system: true
+
+- name: Create a user for every service
+  ansible.builtin.user:
+    name: '{{ item }}'
+    home: /home/{{ item }}
+    shell: /usr/sbin/nologin
+    system: true
+    create_home: true
+    password_lock: true
+    groups: "{{ ['web'] if item in base_web_users else omit }}"
+  loop: '{{ base_service_users }}'
+
+- name: Read user IDs
+  ansible.builtin.getent:
+    database: passwd
+
+# Ubuntu does not reserve the ranges for system users, but rootless Podman
+# needs them to map container users to host users.
+- name: Reserve subordinate ID ranges for rootless Podman
+  ansible.builtin.lineinfile:
+    path: /etc/{{ item.0 }}
+    regexp: '^{{ item.1 }}:'
+    line: >-
+      {{ item.1 }}:{{
+        100000 + (ansible_facts.getent_passwd[item.1][1] | int) * 65536
+      }}:65536
+    owner: root
+    group: root
+    mode: '0644'
+    create: true
+  loop: "{{ ['subuid', 'subgid'] | product(base_service_users) | list }}"
+  loop_control:
+    label: '{{ item.0 }}: {{ item.1 }}'
+  notify: Migrate Podman storage
+
+# Without lingering, systemd stops user services as soon as Ansible
+# closes the SSH session.
+- name: Start user services without an active login session
+  ansible.builtin.command: loginctl enable-linger {{ item }}
+  args:
+    creates: /var/lib/systemd/linger/{{ item }}
+  loop: '{{ base_service_users }}'
+
+- name: Wait for the user systemd instances
+  ansible.builtin.wait_for:
+    path: /run/user/{{ ansible_facts.getent_passwd[item][1] }}/systemd/private
+    timeout: 60
+  loop: '{{ base_service_users }}'
+
+- name: Create the directory for deploy requests
+  ansible.builtin.file:
+    path: '{{ deploy_dir }}'
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Create the systemd directory of every service user
+  ansible.builtin.file:
+    path: /home/{{ item }}/.config/systemd/user
+    state: directory
+    owner: '{{ item }}'
+    group: '{{ item }}'
+    mode: '0755'
+  loop: '{{ base_service_users }}'
+
+- name: Create the image cleanup units for every service user
+  ansible.builtin.template:
+    src: '{{ item.0 }}.j2'
+    dest: /home/{{ item.1 }}/.config/systemd/user/{{ item.0 }}
+    owner: '{{ item.1 }}'
+    group: '{{ item.1 }}'
+    mode: '0644'
+  loop: "{{ ['podman-prune.service', 'podman-prune.timer'] | product(base_service_users) | list }}"
+  loop_control:
+    label: '{{ item.1 }}: {{ item.0 }}'
+  register: base_prune_units
+
+- name: Remove the old images every day
+  become: true
+  become_user: '{{ item }}'
+  environment:
+    XDG_RUNTIME_DIR: /run/user/{{ ansible_facts.getent_passwd[item][1] }}
+  ansible.builtin.systemd_service:
+    name: podman-prune.timer
+    scope: user
+    enabled: true
+    state: "{{ 'restarted' if base_prune_units.changed else 'started' }}"
+    daemon_reload: true
+  loop: '{{ base_service_users }}'

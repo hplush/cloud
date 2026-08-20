@@ -1,0 +1,10 @@
+# Managed by Ansible
+[Unit]
+Description=Deploy the new image of {{ service.domain }}
+
+[Service]
+Type=oneshot
+ExecStart=%h/.local/bin/deploy.sh
+# The deploy API waits a little longer than this, so a stuck deploy answers
+# with its own log instead of the API timeout
+TimeoutStartSec=600

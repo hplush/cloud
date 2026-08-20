@@ -1,0 +1,74 @@
+---
+- name: Create the directories for the deploy API
+  ansible.builtin.file:
+    path: '{{ item }}'
+    state: directory
+    owner: '{{ api_user }}'
+    group: '{{ api_user }}'
+    mode: '0755'
+  loop:
+    - '{{ api_home }}/app'
+    - '{{ api_home }}/.config/containers/systemd'
+
+# We keep the server as source files and run them with the Node.js image
+- name: Copy the deploy API sources
+  ansible.builtin.copy:
+    src: '{{ item }}'
+    dest: '{{ api_home }}/app/{{ item }}'
+    owner: '{{ api_user }}'
+    group: '{{ api_user }}'
+    mode: '0644'
+  loop:
+    - server.mjs
+    - health.mjs
+  notify: Restart the deploy API
+
+- name: Configure which repository can deploy which website
+  ansible.builtin.template:
+    src: services.json.j2
+    dest: '{{ api_home }}/app/services.json'
+    owner: '{{ api_user }}'
+    group: '{{ api_user }}'
+    mode: '0644'
+  notify: Restart the deploy API
+
+- name: Create the deploy API container
+  ansible.builtin.template:
+    src: api.container.j2
+    dest: '{{ api_home }}/.config/containers/systemd/api.container'
+    owner: '{{ api_user }}'
+    group: '{{ api_user }}'
+    mode: '0644'
+  notify: Restart the deploy API
+
+- name: Start the deploy API
+  become: true
+  become_user: '{{ api_user }}'
+  environment:
+    XDG_RUNTIME_DIR: /run/user/{{ api_uid }}
+  ansible.builtin.systemd_service:
+    name: api.service
+    scope: user
+    state: started
+    daemon_reload: true
+
+# Node.js uses a rolling tag, so Podman can update it without our help
+- name: Update the Node.js image automatically
+  become: true
+  become_user: '{{ api_user }}'
+  environment:
+    XDG_RUNTIME_DIR: /run/user/{{ api_uid }}
+  ansible.builtin.systemd_service:
+    name: podman-auto-update.timer
+    scope: user
+    enabled: true
+    state: started
+
+- name: Add the deploy API domain to Caddy
+  ansible.builtin.template:
+    src: api.caddy.j2
+    dest: /etc/caddy/sites/{{ api_domain }}.caddy
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Reload Caddy

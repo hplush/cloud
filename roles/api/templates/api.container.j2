@@ -1,0 +1,32 @@
+# Managed by Ansible
+[Unit]
+Description=Internal web API to deploy websites
+
+[Container]
+Image={{ api_node_image }}
+AutoUpdate=registry
+Exec=node /app/server.mjs
+Environment=PORT={{ api_port }}
+Environment=AUDIENCE={{ api_audience }}
+Environment=CONFIG=/app/services.json
+# Only Caddy should be able to reach the endpoint
+PublishPort=127.0.0.1:{{ api_port }}:{{ api_port }}
+Volume={{ api_home }}/app:/app:ro
+# The endpoint writes deploy requests for website users here
+Volume={{ deploy_dir }}:{{ deploy_dir }}:rw
+ReadOnly=true
+Tmpfs=/tmp
+NoNewPrivileges=true
+# The image runs as its own non-root user, but rootless Podman would map it
+# to a subordinate ID, and the container could not write deploy requests.
+# `keep-id` maps the `{{ api_user }}` user of the host to that same user instead.
+UserNS=keep-id:uid=65532,gid=65532
+HealthCmd=node /app/health.mjs
+HealthInterval=1m
+
+[Service]
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=default.target

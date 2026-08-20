@@ -1,0 +1,3 @@
+---
+web_home: /home/{{ service.user }}
+web_uid: '{{ ansible_facts.getent_passwd[service.user][1] }}'
