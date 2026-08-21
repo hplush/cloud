@@ -210,7 +210,7 @@
     - timer
   register: preview_gc_units
 
-- name: Clean the old previews of {{ preview.domain }} every day
+- name: Clean the old previews every day for {{ preview.domain }}
   become: true
   become_user: '{{ preview.user }}'
   environment:
