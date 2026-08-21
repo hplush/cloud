@@ -1,0 +1,8 @@
+# Managed by Ansible
+#
+# The root `preview-route` wrapper reads this file to check the requests
+# of the preview user before it writes a Caddy route for them.
+user={{ preview.user }}
+prefix={{ preview.prefix }}
+port_from={{ preview.ports.from }}
+port_to={{ preview.ports.to }}

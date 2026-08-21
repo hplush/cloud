@@ -58,7 +58,13 @@ A pull request of a project can get its own subdomain running single image, like
 The code in a pull request is not reviewed yet, so previews live in
 their own user, far from the websites: no database, no shared network,
 no access to the host, and their own memory limit for all of them
-together.
+together. The preview user never writes Caddy config itself: it asks
+the root `preview-route` wrapper, which validates the pull request
+number and the port and writes the route from its own template.
+
+A preview stops with its pull request, and a daily timer also cleans
+every preview which nobody redeployed for `max_days` (30 by default),
+so a failed clean workflow can’t leave unreviewed code running forever.
 
 ### Internal Web API
 

@@ -1,0 +1,7 @@
+# Managed by Ansible
+[Unit]
+Description=Clean the old previews of {{ preview.domain }}
+
+[Service]
+Type=oneshot
+ExecStart=%h/.local/bin/preview-gc.sh

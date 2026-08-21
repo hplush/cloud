@@ -166,6 +166,11 @@
     name: web
     system: true
 
+- name: Create a group for preview users
+  ansible.builtin.group:
+    name: previews
+    system: true
+
 - name: Create a user for every service
   ansible.builtin.user:
     name: '{{ item }}'
@@ -174,7 +179,10 @@
     system: true
     create_home: true
     password_lock: true
-    groups: "{{ ['web'] if item in base_caddy_users else omit }}"
+    groups: >-
+      {{ ['web'] if item in base_web_users
+         else ['previews'] if item in base_preview_users
+         else omit }}
   loop: '{{ base_service_users }}'
 
 - name: Read user IDs

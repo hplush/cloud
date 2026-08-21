@@ -1,0 +1,78 @@
+#!/usr/bin/env bash
+# Managed by Ansible
+#
+# Writes and removes the Caddy routes of pull request previews.
+#
+# The preview user calls it with sudo, so every argument may come from
+# an attacker who broke out of a preview container. The script checks
+# each one against the root-owned config of the environment and writes
+# the route from its own template, so a compromised preview user can
+# only touch its own routes and can never feed Caddy any other
+# directive.
+
+set -euo pipefail
+umask 022
+
+domain=${1-} action=${2-} pr=${3-} port=${4-}
+
+if ! [[ "$domain" =~ ^[a-z0-9][a-z0-9.-]*$ ]]; then
+  echo "$domain is not a preview domain" >&2
+  exit 1
+fi
+conf="/etc/preview-routes/$domain.conf"
+if [ ! -f "$conf" ]; then
+  echo "$domain has no preview environment" >&2
+  exit 1
+fi
+
+user= prefix= port_from= port_to=
+# Only Ansible writes the config, so sourcing it is safe
+# shellcheck source=/dev/null
+. "$conf"
+if [ -z "$user" ] || [ -z "$prefix" ] || [ -z "$port_from" ] || [ -z "$port_to" ]
+then
+  echo "Broken config $conf" >&2
+  exit 1
+fi
+
+# One preview user should not touch the routes of another environment
+caller=${SUDO_USER-root}
+if [ "$caller" != root ] && [ "$caller" != "$user" ]; then
+  echo "$caller can’t change the previews of $domain" >&2
+  exit 1
+fi
+
+if ! [[ "$pr" =~ ^[0-9]+$ ]]; then
+  echo "$pr is not a pull request number" >&2
+  exit 1
+fi
+
+host="$prefix$pr.$domain"
+route="/etc/caddy/previews/$domain/$host.caddy"
+
+case "$action" in
+  add)
+    if ! [[ "$port" =~ ^[0-9]+$ ]] \
+      || [ "$port" -lt "$port_from" ] || [ "$port" -gt "$port_to" ]
+    then
+      echo "$port is not a port from $port_from to $port_to" >&2
+      exit 1
+    fi
+    cat > "$route" <<ROUTE
+# Managed by preview-route
+@$prefix$pr host $host
+handle @$prefix$pr {
+	reverse_proxy 127.0.0.1:$port
+}
+ROUTE
+    ;;
+  remove)
+    rm -f "$route"
+    ;;
+  *)
+    echo "Unknown action $action" >&2
+    exit 1
+    ;;
+esac
+
+systemctl reload caddy.service

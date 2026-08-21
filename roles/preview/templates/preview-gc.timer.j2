@@ -1,0 +1,12 @@
+# Managed by Ansible
+[Unit]
+Description=Clean the old previews of {{ preview.domain }} every day
+
+[Timer]
+OnCalendar=daily
+RandomizedDelaySec=1h
+# Run after a downtime instead of skipping the day
+Persistent=true
+
+[Install]
+WantedBy=timers.target

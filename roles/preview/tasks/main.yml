@@ -69,15 +69,27 @@
   loop_control:
     label: '{{ item.name }}'
 
-# The preview script writes one file here for every running preview, and
-# the Caddy config of this environment imports all of them.
+# The `preview-route` wrapper writes one file here for every running
+# preview, and the Caddy config of this environment imports all of them.
+# Only root writes here: Caddy takes any directive from these files, so
+# a compromised preview user should not author them.
 - name: Create the Caddy directory for the previews of {{ preview.domain }}
   ansible.builtin.file:
     path: '{{ preview_caddy }}'
     state: directory
-    owner: '{{ preview.user }}'
-    group: '{{ preview.user }}'
+    owner: root
+    group: root
     mode: '0755'
+
+# The directory ownership alone is not enough: a file which the preview
+# user already owns would stay writable for it
+- name: Own the existing routes of the previews of {{ preview.domain }}
+  ansible.builtin.file:
+    path: '{{ preview_caddy }}'
+    state: directory
+    recurse: true
+    owner: root
+    group: root
 
 - name: Keep the Caddy directory non-empty for {{ preview.domain }}
   ansible.builtin.copy:
@@ -97,10 +109,54 @@
     mode: '0644'
   notify: Reload Caddy
 
+# The wrapper turns the intent of the preview user (“route this pull
+# request to this port”) into a Caddy route, so the user itself never
+# writes Caddy config and never reloads Caddy directly
+- name: Create the directory for the preview route configs
+  ansible.builtin.file:
+    path: /etc/preview-routes
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Describe the routes of the previews of {{ preview.domain }}
+  ansible.builtin.template:
+    src: preview-routes.conf.j2
+    dest: /etc/preview-routes/{{ preview.domain }}.conf
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Install the route wrapper for the previews
+  ansible.builtin.copy:
+    src: preview-route
+    dest: /usr/local/bin/preview-route
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Allow preview users to change their routes
+  ansible.builtin.copy:
+    src: preview-route-sudoers
+    dest: /etc/sudoers.d/preview-route
+    owner: root
+    group: root
+    mode: '0440'
+    validate: /usr/sbin/visudo --check --file %s
+
 - name: Copy the preview script for {{ preview.domain }}
   ansible.builtin.template:
     src: preview.sh.j2
     dest: '{{ preview_home }}/.local/bin/preview.sh'
+    owner: '{{ preview.user }}'
+    group: '{{ preview.user }}'
+    mode: '0755'
+
+- name: Copy the cleanup script for the previews of {{ preview.domain }}
+  ansible.builtin.template:
+    src: preview-gc.sh.j2
+    dest: '{{ preview_home }}/.local/bin/preview-gc.sh'
     owner: '{{ preview.user }}'
     group: '{{ preview.user }}'
     mode: '0755'
@@ -138,4 +194,30 @@
     scope: user
     enabled: true
     state: "{{ 'restarted' if preview_units.changed or preview_slice.changed else 'started' }}"
+    daemon_reload: true
+
+# A clean workflow can fail or never run, and a forgotten preview would
+# keep serving unreviewed code forever without this timer
+- name: Create the cleanup units for the previews of {{ preview.domain }}
+  ansible.builtin.template:
+    src: 'preview-gc.{{ item }}.j2'
+    dest: '{{ preview_home }}/.config/systemd/user/preview-gc.{{ item }}'
+    owner: '{{ preview.user }}'
+    group: '{{ preview.user }}'
+    mode: '0644'
+  loop:
+    - service
+    - timer
+  register: preview_gc_units
+
+- name: Clean the old previews of {{ preview.domain }} every day
+  become: true
+  become_user: '{{ preview.user }}'
+  environment:
+    XDG_RUNTIME_DIR: /run/user/{{ preview_uid }}
+  ansible.builtin.systemd_service:
+    name: preview-gc.timer
+    scope: user
+    enabled: true
+    state: "{{ 'restarted' if preview_gc_units.changed else 'started' }}"
     daemon_reload: true

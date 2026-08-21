@@ -2,7 +2,7 @@
 # Every pull request with the `preview` label gets a subdomain here and runs
 # as one container. The code in a pull request is not reviewed yet, so all
 # previews live in their own user, away from the websites and their data.
-user: preview
+user: slowreader-preview
 
 repository: hplush/slowreader
 branch: main
@@ -35,3 +35,8 @@ env:
 # this much memory: previews should slow each other down instead of
 # pushing the websites out of the memory.
 slice_memory: 2G
+
+# A preview which nobody redeployed for this many days is cleaned even if
+# its pull request is still open, so a forgotten preview does not serve
+# unreviewed code forever.
+max_days: 30

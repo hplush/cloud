@@ -1,7 +1,8 @@
 ---
+# Website users rewrite their own Caddy configs and reload Caddy after it.
+# Preview users go through the root `preview-route` wrapper instead, so
+# a compromised preview can never author Caddy config.
 base_web_users: "{{ web_services | map(attribute='user') | list }}"
 base_preview_users: "{{ previews | map(attribute='user') | list }}"
-# These users rewrite their own Caddy configs and reload Caddy after it
-base_caddy_users: '{{ base_web_users + base_preview_users }}'
 # Every service has its own user to run rootless Podman containers
-base_service_users: '{{ base_caddy_users + [api_user] }}'
+base_service_users: '{{ base_web_users + base_preview_users + [api_user] }}'

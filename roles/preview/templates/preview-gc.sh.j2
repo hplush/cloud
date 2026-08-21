@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+# Managed by Ansible
+#
+# A preview stops with its pull request, but only when the clean workflow
+# succeeds. This script asks the deploy script to clean every preview
+# which nobody has redeployed for {{ preview.max_days | default(30) }} days,
+# so a forgotten preview does not run unreviewed code forever.
+
+set -euo pipefail
+
+STATE="{{ preview_state }}"
+REQUESTS="{{ preview_deploy }}/requests"
+
+# The deploy rewrites `env` on every request, so its age is the age
+# of the preview
+find "$STATE" -mindepth 2 -maxdepth 2 -name env \
+  -mtime +{{ preview.max_days | default(30) }} -printf '%h\n' \
+| while read -r dir; do
+  pr=$(basename "$dir")
+  [[ "$pr" =~ ^[0-9]+$ ]] || continue
+  echo "Cleaning the old preview of the pull request $pr"
+  echo "clean $pr" > "$REQUESTS/gc-$pr"
+done

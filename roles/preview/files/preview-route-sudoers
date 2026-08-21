@@ -1,0 +1,2 @@
+# Managed by Ansible
+%previews ALL=(root) NOPASSWD: /usr/local/bin/preview-route *

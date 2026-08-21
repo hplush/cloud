@@ -7,8 +7,8 @@
 # fails when the preview does not start.
 #
 # A preview is a single container from a single image. It gets a free port
-# on the loopback interface, a file in the Caddy directory of this
-# environment, and a file in `running/`, which the deploy API reads to tell
+# on the loopback interface, a Caddy route through the root `preview-route`
+# wrapper, and a file in `running/`, which the deploy API reads to tell
 # Caddy that the domain may get a certificate.
 
 set -uo pipefail
@@ -22,7 +22,6 @@ PORT_FROM="{{ preview.ports.from }}"
 PORT_TO="{{ preview.ports.to }}"
 QUADLET="{{ preview_quadlet }}"
 STATE="{{ preview_state }}"
-CADDY="{{ preview_caddy }}"
 REQUESTS="{{ preview_deploy }}/requests"
 RESULTS="{{ preview_deploy }}/results"
 RUNNING="{{ preview_deploy }}/running"
@@ -115,25 +114,22 @@ UNIT
 
 route() {
   local pr=$1 port=$2 host=$3
-  cat > "$CADDY/$host.caddy" <<ROUTE
-# Managed by preview.sh
-@$PREFIX$pr host $host
-handle @$PREFIX$pr {
-	reverse_proxy 127.0.0.1:$port
-}
-ROUTE
   # Caddy asks the deploy API about the domain before it asks Let’s Encrypt
   # for the certificate, and the API answers by this file
   touch "$RUNNING/$host"
-  sudo systemctl reload caddy.service
+  # Only root writes to the Caddy directory: the wrapper checks the number
+  # and the port against its own config, writes the route from its own
+  # template, and reloads Caddy, so this user can never feed Caddy any
+  # other directive
+  sudo /usr/local/bin/preview-route "$DOMAIN" add "$pr" "$port"
 }
 
 # Removes everything about the preview. Also used for a failed deploy: a
 # preview which does not answer should not keep a container and a domain.
 clean() {
   local pr=$1 host="$PREFIX$pr.$DOMAIN"
-  rm -f "$CADDY/$host.caddy" "$RUNNING/$host"
-  sudo systemctl reload caddy.service
+  rm -f "$RUNNING/$host"
+  sudo /usr/local/bin/preview-route "$DOMAIN" remove "$pr"
   systemctl --user stop "$PREFIX$pr.service" 2> /dev/null || true
   rm -f "$QUADLET/$PREFIX$pr.container"
   systemctl --user daemon-reload
