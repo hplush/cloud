@@ -1,0 +1,141 @@
+---
+- name: Create the directory for the firewall rules
+  ansible.builtin.file:
+    path: /etc/nftables
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Add the firewall rules for the previews of {{ preview.domain }}
+  ansible.builtin.template:
+    src: firewall.nft.j2
+    dest: /etc/nftables/{{ preview_firewall }}.nft
+    owner: root
+    group: root
+    mode: '0644'
+    validate: /usr/sbin/nft --check --file %s
+  register: preview_firewall_rules
+
+- name: Create the firewall unit for the previews of {{ preview.domain }}
+  ansible.builtin.template:
+    src: firewall.service.j2
+    dest: /etc/systemd/system/{{ preview_firewall }}.service
+    owner: root
+    group: root
+    mode: '0644'
+  register: preview_firewall_unit
+
+- name: Start the firewall of the previews of {{ preview.domain }}
+  ansible.builtin.systemd_service:
+    name: '{{ preview_firewall }}.service'
+    enabled: true
+    state: >-
+      {{ 'restarted'
+         if preview_firewall_rules.changed or preview_firewall_unit.changed
+         else 'started' }}
+    daemon_reload: true
+
+- name: Create the directories for the previews of {{ preview.domain }}
+  ansible.builtin.file:
+    path: '{{ item }}'
+    state: directory
+    owner: '{{ preview.user }}'
+    group: '{{ preview.user }}'
+    mode: '0755'
+  loop:
+    - '{{ preview_quadlet }}'
+    - '{{ preview_home }}/.config/systemd/user'
+    - '{{ preview_home }}/.local/bin'
+    - '{{ preview_state }}'
+
+# The deploy API writes a request to `requests/` and waits for the answer
+# in `results/`. It also reads `running/` to tell Caddy which preview may
+# get a certificate, and the preview script keeps that directory.
+- name: Create the deploy directories for the previews of {{ preview.domain }}
+  ansible.builtin.file:
+    path: '{{ preview_deploy }}/{{ item.name }}'
+    state: directory
+    owner: '{{ preview.user }}'
+    group: '{{ api_user }}'
+    mode: '{{ item.mode }}'
+  loop:
+    - name: requests
+      mode: '0770'
+    - name: results
+      mode: '0770'
+    - name: running
+      mode: '0750'
+  loop_control:
+    label: '{{ item.name }}'
+
+# The preview script writes one file here for every running preview, and
+# the Caddy config of this environment imports all of them.
+- name: Create the Caddy directory for the previews of {{ preview.domain }}
+  ansible.builtin.file:
+    path: '{{ preview_caddy }}'
+    state: directory
+    owner: '{{ preview.user }}'
+    group: '{{ preview.user }}'
+    mode: '0755'
+
+- name: Keep the Caddy directory non-empty for {{ preview.domain }}
+  ansible.builtin.copy:
+    src: 00-placeholder.caddy
+    dest: '{{ preview_caddy }}/00-placeholder.caddy'
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Reload Caddy
+
+- name: Add the Caddy config for the previews of {{ preview.domain }}
+  ansible.builtin.template:
+    src: previews.caddy.j2
+    dest: /etc/caddy/sites/{{ preview.domain }}-previews.caddy
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Reload Caddy
+
+- name: Copy the preview script for {{ preview.domain }}
+  ansible.builtin.template:
+    src: preview.sh.j2
+    dest: '{{ preview_home }}/.local/bin/preview.sh'
+    owner: '{{ preview.user }}'
+    group: '{{ preview.user }}'
+    mode: '0755'
+
+# All previews live in one slice, so a pull request can slow down another
+# pull request but not the websites.
+- name: Create the slice of the previews of {{ preview.domain }}
+  ansible.builtin.template:
+    src: preview.slice.j2
+    dest: '{{ preview_home }}/.config/systemd/user/preview.slice'
+    owner: '{{ preview.user }}'
+    group: '{{ preview.user }}'
+    mode: '0644'
+  register: preview_slice
+
+- name: Create the deploy units for the previews of {{ preview.domain }}
+  ansible.builtin.template:
+    src: 'preview.{{ item }}.j2'
+    dest: '{{ preview_home }}/.config/systemd/user/preview.{{ item }}'
+    owner: '{{ preview.user }}'
+    group: '{{ preview.user }}'
+    mode: '0644'
+  loop:
+    - service
+    - path
+  register: preview_units
+
+- name: Watch for preview requests of {{ preview.domain }}
+  become: true
+  become_user: '{{ preview.user }}'
+  environment:
+    XDG_RUNTIME_DIR: /run/user/{{ preview_uid }}
+  ansible.builtin.systemd_service:
+    name: preview.path
+    scope: user
+    enabled: true
+    state: "{{ 'restarted' if preview_units.changed or preview_slice.changed else 'started' }}"
+    daemon_reload: true

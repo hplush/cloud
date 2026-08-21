@@ -1,0 +1,17 @@
+# Managed by Ansible
+#
+# Every running preview has its own file in the imported directory, written
+# by the preview script. A preview comes and goes with its pull request, so
+# Caddy can’t know the domains in advance and gets the certificate during
+# the first request. It asks the deploy API first, so it will never ask
+# Let’s Encrypt about a domain which nobody is serving.
+*.{{ preview.domain }} {
+	encode zstd gzip
+	tls {
+		on_demand
+	}
+	import {{ preview_caddy }}/*.caddy
+	handle {
+		respond "There is no such preview" 404
+	}
+}

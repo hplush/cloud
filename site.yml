@@ -3,6 +3,10 @@
   hosts: all
   become: true
 
+  vars:
+    # A server can run without pull request previews at all
+    previews: []
+
   pre_tasks:
     # Every website has its own config in `websites/`, and the file name
     # is the domain. All roles use the `web_services` list from them.
@@ -43,6 +47,20 @@
       loop_control:
         label: '{{ item.domain }}'
 
+    # Previews are not in `websites/`: nobody declares them one by one.
+    # A config here describes the domain and the image of a whole kind
+    # of preview, and the deploy API starts and stops them by itself.
+    - name: Read the config of every preview environment
+      ansible.builtin.set_fact:
+        previews: >-
+          {{ previews + [
+               lookup('ansible.builtin.file', item) | from_yaml
+               | combine({'domain': item | basename | splitext | first})
+             ] }}
+      loop: "{{ query('ansible.builtin.fileglob', playbook_dir ~ '/previews/*.yml') | sort }}"
+      loop_control:
+        label: '{{ item | basename }}'
+
   roles:
     # Base system: updates, livepatch, firewall, Podman, users
     - base
@@ -59,3 +77,11 @@
       loop_control:
         loop_var: service
         label: '{{ service.domain }}'
+
+    - name: Configure pull request previews
+      ansible.builtin.include_role:
+        name: preview
+      loop: '{{ previews }}'
+      loop_control:
+        loop_var: preview
+        label: '{{ preview.domain }}'

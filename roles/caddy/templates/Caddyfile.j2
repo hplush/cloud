@@ -7,6 +7,15 @@
 	# from the deploy script keeps working.
 	admin unix//run/caddy/admin.sock
 	email {{ caddy_email }}
+{% if previews %}
+	# Pull request previews get their domains at runtime, so Caddy takes
+	# their certificates during the first request. It asks the deploy API
+	# first: without the check anybody could point a domain to this server
+	# and spend our Let’s Encrypt limits.
+	on_demand_tls {
+		ask http://127.0.0.1:{{ api_port }}/preview-allowed
+	}
+{% endif %}
 }
 
 import /etc/caddy/sites/*.caddy

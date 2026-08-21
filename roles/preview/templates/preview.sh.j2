@@ -1,0 +1,224 @@
+#!/usr/bin/env bash
+# Managed by Ansible
+#
+# Starts and stops the preview of a pull request. The deploy API writes
+# a request file with the action and the number of the pull request, and
+# this script answers with a file named after the request, so a workflow
+# fails when the preview does not start.
+#
+# A preview is a single container from a single image. It gets a free port
+# on the loopback interface, a file in the Caddy directory of this
+# environment, and a file in `running/`, which the deploy API reads to tell
+# Caddy that the domain may get a certificate.
+
+set -uo pipefail
+
+DOMAIN="{{ preview.domain }}"
+PREFIX="{{ preview.prefix }}"
+IMAGE="{{ preview.image }}"
+CONTAINER_PORT="{{ preview.container_port }}"
+HEALTH_PATH="{{ preview.health_path | default('/') }}"
+PORT_FROM="{{ preview.ports.from }}"
+PORT_TO="{{ preview.ports.to }}"
+QUADLET="{{ preview_quadlet }}"
+STATE="{{ preview_state }}"
+CADDY="{{ preview_caddy }}"
+REQUESTS="{{ preview_deploy }}/requests"
+RESULTS="{{ preview_deploy }}/results"
+RUNNING="{{ preview_deploy }}/running"
+
+report() {
+  local id=$1 status=$2 log=$3 result
+  # The API polls for this file. Publish it with one rename so it can never
+  # read a status line or log which is only partly written.
+  result=$(mktemp "$RESULTS/.result.XXXXXX")
+  {
+    if [ "$status" -eq 0 ]; then echo ok; else echo fail; fi
+    cat "$log"
+  } > "$result"
+  chmod 0644 "$result"
+  mv --force -- "$result" "$RESULTS/$id"
+  # Nobody is waiting for the answer to a request which was made by hand
+  # or whose workflow has already given up
+  find "$RESULTS" -type f -mmin +60 -delete
+  # The journal is the only place to read the log of a manual request
+  cat "$log"
+  rm -f "$log"
+}
+
+# Every preview keeps its port until it is cleaned, so a redeploy does not
+# move the pull request to another port.
+free_port() {
+  local used port
+  # The first preview of the server has nothing to read here
+  used=$(cat "$STATE"/*/port 2> /dev/null || true)
+  for port in $(seq "$PORT_FROM" "$PORT_TO"); do
+    if ! grep -qxF "$port" <<< "$used"; then
+      echo "$port"
+      return 0
+    fi
+  done
+  echo "All ports from $PORT_FROM to $PORT_TO are taken" >&2
+  return 1
+}
+
+environment() {
+  local host=$1
+  echo "# Managed by preview.sh"
+{% for name, value in (preview.env | default({})).items() %}
+  echo '{{ name }}={{ value | replace("'", "'\\''") }}'
+{% endfor %}
+  # The CORS proxy inside the image takes a RegExp for the `Origin` header.
+  # Podman reads this file as is, so the backslashes stay backslashes.
+  echo "PROXY_ORIGIN=^https:\\/\\/${host//./\\.}\$"
+}
+
+container() {
+  local pr=$1 port=$2
+  cat <<UNIT
+# Managed by preview.sh
+[Unit]
+Description=Preview of pull request $pr
+
+[Container]
+Image=$IMAGE:$PREFIX$pr
+# The script pulls the image before it starts the container
+Pull=never
+PublishPort=127.0.0.1:$port:$CONTAINER_PORT
+# Podman keeps the container in its own network namespace and does not map
+# the gateway to the host. It maps \`host.containers.internal\` to the host
+# though, and a preview should not reach the services of this server at all.
+Network=pasta:--map-guest-addr,none
+EnvironmentFile=$STATE/$pr/env
+# The code in a pull request is not reviewed yet, so a preview gets even
+# less than a website: no capability, no writable file system, and no way
+# to the private networks of the websites.
+ReadOnly=true
+DropCapability=all
+NoNewPrivileges=true
+HealthOnFailure=kill
+
+[Service]
+Restart=always
+RestartSec=5
+TimeoutStartSec=300
+# All previews share the limits of this slice
+Slice=preview.slice
+MemoryMax={{ preview.memory | default('512M') }}
+CPUQuota={{ preview.cpu | default('100%') }}
+TasksMax={{ preview.tasks | default(512) }}
+
+[Install]
+WantedBy=default.target
+UNIT
+}
+
+route() {
+  local pr=$1 port=$2 host=$3
+  cat > "$CADDY/$host.caddy" <<ROUTE
+# Managed by preview.sh
+@$PREFIX$pr host $host
+handle @$PREFIX$pr {
+	reverse_proxy 127.0.0.1:$port
+}
+ROUTE
+  # Caddy asks the deploy API about the domain before it asks Let’s Encrypt
+  # for the certificate, and the API answers by this file
+  touch "$RUNNING/$host"
+  sudo systemctl reload caddy.service
+}
+
+# Removes everything about the preview. Also used for a failed deploy: a
+# preview which does not answer should not keep a container and a domain.
+clean() {
+  local pr=$1 host="$PREFIX$pr.$DOMAIN"
+  rm -f "$CADDY/$host.caddy" "$RUNNING/$host"
+  sudo systemctl reload caddy.service
+  systemctl --user stop "$PREFIX$pr.service" 2> /dev/null || true
+  rm -f "$QUADLET/$PREFIX$pr.container"
+  systemctl --user daemon-reload
+  podman rmi --force "$IMAGE:$PREFIX$pr" 2> /dev/null || true
+  rm -rf "${STATE:?}/$pr"
+}
+
+deploy() {
+  local pr=$1 host="$PREFIX$pr.$DOMAIN" tag="$IMAGE:$PREFIX$pr" port
+
+  echo "Starting $tag on $host"
+  podman pull --quiet "$tag"
+
+  if [ -f "$STATE/$pr/port" ]; then
+    port=$(cat "$STATE/$pr/port")
+  else
+    port=$(free_port)
+    mkdir -p "$STATE/$pr"
+    echo "$port" > "$STATE/$pr/port"
+  fi
+
+  environment "$host" > "$STATE/$pr/env"
+  chmod 0600 "$STATE/$pr/env"
+  container "$pr" "$port" > "$QUADLET/$PREFIX$pr.container"
+  systemctl --user daemon-reload
+  systemctl --user restart "$PREFIX$pr.service"
+
+  echo "Waiting for the health check on port $port"
+  local healthy=no
+  for _ in $(seq 1 60); do
+    if curl --silent --fail --max-time 2 --output /dev/null \
+      "http://127.0.0.1:$port$HEALTH_PATH"
+    then
+      healthy=yes
+      break
+    fi
+    sleep 1
+  done
+
+  if [ "$healthy" = "no" ]; then
+    echo "The image of the pull request $pr does not answer" >&2
+    clean "$pr"
+    return 1
+  fi
+
+  route "$pr" "$port" "$host"
+  echo "https://$host is running on port $port"
+}
+
+for request in "$REQUESTS"/*; do
+  [ -e "$request" ] || continue
+  id=$(basename "$request")
+  read -r action pr < "$request"
+  # Take the request before the work, so a request which comes during
+  # the deploy will start this script again instead of being lost
+  rm -f "$request"
+
+  log=$(mktemp)
+  # systemd kills the script after `TimeoutStartSec`, and even then
+  # the API should get an answer instead of waiting for its own timeout
+  trap 'report "$id" 1 "$log"; exit 1' INT TERM
+
+  (
+    set -e
+    # The API checks the number as well, but this script makes a domain and
+    # file names from it, so it never trusts the request file
+    if ! [[ "$pr" =~ ^[0-9]+$ ]]; then
+      echo "$pr is not a pull request number" >&2
+      exit 1
+    fi
+    case "$action" in
+      clean)
+        clean "$pr"
+        echo "$PREFIX$pr.$DOMAIN is stopped"
+        ;;
+      deploy)
+        deploy "$pr"
+        ;;
+      *)
+        echo "Unknown request $action" >&2
+        exit 1
+        ;;
+    esac
+  ) > "$log" 2>&1
+  status=$?
+
+  report "$id" "$status" "$log"
+done

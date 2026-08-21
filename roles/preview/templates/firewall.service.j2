@@ -1,0 +1,15 @@
+# Managed by Ansible
+[Unit]
+Description=Firewall rules for the previews of {{ preview.domain }}
+# Our own table, so it does not touch the tables of ufw
+After=ufw.service
+Wants=ufw.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=true
+ExecStart=/usr/sbin/nft --file /etc/nftables/{{ preview_firewall }}.nft
+ExecStop=-/usr/sbin/nft delete table inet {{ preview_table }}
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,10 @@
+# Managed by Ansible
+[Unit]
+Description=Pull request previews of {{ preview.domain }}
+
+[Slice]
+# A soft limit: the kernel takes the memory back from the previews instead
+# of killing them, and the websites keep theirs.
+MemoryHigh={{ preview.slice_memory | default('2G') }}
+# Previews get the CPU only after the websites of this server
+CPUWeight=50

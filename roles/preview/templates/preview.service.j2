@@ -1,0 +1,10 @@
+# Managed by Ansible
+[Unit]
+Description=Start and stop the previews of {{ preview.domain }}
+
+[Service]
+Type=oneshot
+ExecStart=%h/.local/bin/preview.sh
+# The deploy API waits a little longer than this, so a stuck preview answers
+# with its own log instead of the API timeout
+TimeoutStartSec=600

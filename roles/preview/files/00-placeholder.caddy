@@ -1,0 +1,5 @@
+# Managed by Ansible
+#
+# The Caddy config of this environment imports the directory by a glob
+# pattern, and the pattern must match at least one file even when no pull
+# request preview is running.

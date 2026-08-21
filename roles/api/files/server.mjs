@@ -10,11 +10,17 @@
 // with a systemd path unit and starts the deploy on its own, so this server
 // never runs any command and does not need any extra permissions.
 //
+// Pull request previews work the same way, but their domains come and go
+// with the pull requests: `POST /deploy/preview-42.slowreader.hplush.dev` starts
+// one and `DELETE` on the same address stops it. Caddy has no config for
+// such a domain either, so it asks `/preview-allowed` before it takes
+// a certificate for it.
+//
 // The deploy script answers with a file named after the request, and we hold
 // the HTTP connection until it appears. Without it a workflow would report
 // a success for an image which never started.
 
-import { readFile, unlink, writeFile } from 'node:fs/promises'
+import { access, readFile, unlink, writeFile } from 'node:fs/promises'
 import { createServer } from 'node:http'
 import { setTimeout } from 'node:timers/promises'
 
@@ -34,7 +40,9 @@ const PORT = Number(process.env.PORT || 8000)
 const AUDIENCE = process.env.AUDIENCE
 const CONFIG = process.env.CONFIG || '/app/services.json'
 
-const services = JSON.parse(await readFile(CONFIG, 'utf8'))
+const config = JSON.parse(await readFile(CONFIG, 'utf8'))
+const websites = config.websites
+const previews = config.previews
 
 class HttpError extends Error {
   constructor(code, message) {
@@ -131,6 +139,101 @@ async function waitForDeploy(file, req) {
   throw new HttpError(504, 'The deploy did not finish in time')
 }
 
+function escapeRegExp(string) {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+// `preview-42.slowreader.hplush.dev` belongs to the `slowreader.hplush.dev` environment
+// and to the pull request 42. The number becomes a file name and a systemd
+// unit name later, so nothing but digits is allowed here.
+function findPreview(domain) {
+  for (let parent in previews) {
+    let preview = previews[parent]
+    let format = new RegExp(
+      `^${escapeRegExp(preview.prefix)}(\\d+)\\.${escapeRegExp(parent)}$`
+    )
+    let match = domain.match(format)
+    if (match) return { number: match[1], preview }
+  }
+  return undefined
+}
+
+async function checkToken(req, allowed, action, domain) {
+  let auth = req.headers.authorization || ''
+  if (!auth.startsWith('Bearer ')) {
+    throw new HttpError(401, 'No GitHub Actions token')
+  }
+  let token = await verifyToken(auth.slice('Bearer '.length))
+  if (token.repository !== allowed.repository) {
+    throw new HttpError(403, `${token.repository} can’t ${action} ${domain}`)
+  }
+  if (token.workflow_ref !== allowed.workflow_ref) {
+    throw new HttpError(403, `${token.workflow_ref} can’t ${action} ${domain}`)
+  }
+  if (token.ref !== allowed.ref) {
+    throw new HttpError(403, `${token.ref} can’t ${action} ${domain}`)
+  }
+  return token
+}
+
+// The script answers with a file named after the request, and we hold the
+// HTTP connection until it appears.
+async function request(service, content, action, domain, req) {
+  let id = crypto.randomUUID()
+  await writeFile(`${service.requests}/${id}`, content)
+
+  let { log, status } = await waitForDeploy(`${service.results}/${id}`, req)
+  if (status !== 'ok') {
+    throw new HttpError(500, `${action} of ${domain} failed\n${log}`)
+  }
+  return `${action} of ${domain} finished\n${log}`
+}
+
+async function deployWebsite(req, domain, service) {
+  if (req.method !== 'POST') throw new HttpError(405, 'Use POST')
+  let token = await checkToken(req, service, 'deploy', domain)
+  console.log(`Deploy of ${domain} requested by ${token.workflow_ref}`)
+  let content = `${token.repository} ${token.sha || ''}\n`
+  return request(service, content, 'Deploy', domain, req)
+}
+
+async function changePreview(req, domain, { number, preview }) {
+  let clean = req.method === 'DELETE'
+  if (!clean && req.method !== 'POST') {
+    throw new HttpError(405, 'Use POST to start a preview and DELETE to stop')
+  }
+  let action = clean ? 'clean' : 'deploy'
+  let token = await checkToken(
+    req,
+    {
+      ref: preview.ref,
+      repository: preview.repository,
+      workflow_ref: clean
+        ? preview.clean_workflow_ref
+        : preview.deploy_workflow_ref
+    },
+    action,
+    domain
+  )
+  console.log(`${action} of ${domain} requested by ${token.workflow_ref}`)
+  let content = `${action} ${number}\n`
+  return request(preview, content, clean ? 'Clean' : 'Deploy', domain, req)
+}
+
+// Caddy takes a certificate for a preview domain during the first request
+// to it. Without this check anybody could point any domain to this server
+// and spend our Let’s Encrypt limits.
+async function previewAllowed(domain) {
+  let found = domain ? findPreview(domain) : undefined
+  if (!found) throw new HttpError(404, `${domain} is not a preview domain`)
+  try {
+    await access(`${found.preview.running}/${domain}`)
+  } catch {
+    throw new HttpError(404, `No preview is running on ${domain}`)
+  }
+  return 'OK'
+}
+
 async function route(req) {
   let url = new URL(req.url, `http://${req.headers.host || 'localhost'}`)
 
@@ -138,41 +241,21 @@ async function route(req) {
     return 'OK'
   }
 
+  if (req.method === 'GET' && url.pathname === '/preview-allowed') {
+    return previewAllowed(url.searchParams.get('domain'))
+  }
+
   let deploy = url.pathname.match(/^\/deploy\/([^/]+)$/)
   if (!deploy) throw new HttpError(404, 'Unknown endpoint')
-  if (req.method !== 'POST') throw new HttpError(405, 'Use POST')
 
   let domain = decodeURIComponent(deploy[1])
-  let service = services[domain]
-  if (!service) throw new HttpError(404, `Unknown website ${domain}`)
+  let website = websites[domain]
+  if (website) return deployWebsite(req, domain, website)
 
-  let auth = req.headers.authorization || ''
-  if (!auth.startsWith('Bearer ')) {
-    throw new HttpError(401, 'No GitHub Actions token')
-  }
-  let token = await verifyToken(auth.slice('Bearer '.length))
-  if (token.repository !== service.repository) {
-    throw new HttpError(403, `${token.repository} can’t deploy ${domain}`)
-  }
-  if (token.workflow_ref !== service.workflow_ref) {
-    throw new HttpError(403, `${token.workflow_ref} can’t deploy ${domain}`)
-  }
-  if (token.ref !== service.ref) {
-    throw new HttpError(403, `${token.ref} can’t deploy ${domain}`)
-  }
+  let preview = findPreview(domain)
+  if (preview) return changePreview(req, domain, preview)
 
-  let id = crypto.randomUUID()
-  await writeFile(
-    `${service.requests}/${id}`,
-    `${token.repository} ${token.sha || ''}\n`
-  )
-  console.log(`Deploy of ${domain} requested by ${token.workflow_ref}`)
-
-  let { log, status } = await waitForDeploy(`${service.results}/${id}`, req)
-  if (status !== 'ok') {
-    throw new HttpError(500, `Deploy of ${domain} failed\n${log}`)
-  }
-  return `Deploy of ${domain} finished\n${log}`
+  throw new HttpError(404, `Unknown website ${domain}`)
 }
 
 const server = createServer((req, res) => {

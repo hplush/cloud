@@ -1,11 +1,27 @@
 {
+  "websites": {
 {% for app in web_apps %}
-  "{{ app.domain }}": {
-    "repository": "{{ app.repository }}",
-    "workflow_ref": "{{ app.repository }}/.github/workflows/{{ app.workflow }}@refs/heads/{{ app.branch }}",
-    "ref": "refs/heads/{{ app.branch }}",
-    "requests": "{{ deploy_dir }}/{{ app.domain }}/requests",
-    "results": "{{ deploy_dir }}/{{ app.domain }}/results"
-  }{{ "," if not loop.last else "" }}
+    "{{ app.domain }}": {
+      "repository": "{{ app.repository }}",
+      "workflow_ref": "{{ app.repository }}/.github/workflows/{{ app.workflow }}@refs/heads/{{ app.branch }}",
+      "ref": "refs/heads/{{ app.branch }}",
+      "requests": "{{ deploy_dir }}/{{ app.domain }}/requests",
+      "results": "{{ deploy_dir }}/{{ app.domain }}/results"
+    }{{ "," if not loop.last else "" }}
 {% endfor %}
+  },
+  "previews": {
+{% for preview in previews %}
+    "{{ preview.domain }}": {
+      "prefix": "{{ preview.prefix }}",
+      "repository": "{{ preview.repository }}",
+      "deploy_workflow_ref": "{{ preview.repository }}/.github/workflows/{{ preview.deploy_workflow }}@refs/heads/{{ preview.branch }}",
+      "clean_workflow_ref": "{{ preview.repository }}/.github/workflows/{{ preview.clean_workflow }}@refs/heads/{{ preview.branch }}",
+      "ref": "refs/heads/{{ preview.branch }}",
+      "requests": "{{ deploy_dir }}/previews/{{ preview.domain }}/requests",
+      "results": "{{ deploy_dir }}/previews/{{ preview.domain }}/results",
+      "running": "{{ deploy_dir }}/previews/{{ preview.domain }}/running"
+    }{{ "," if not loop.last else "" }}
+{% endfor %}
+  }
 }

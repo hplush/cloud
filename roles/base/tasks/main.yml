@@ -21,6 +21,8 @@
       - needrestart
       # Podman needs it for the private network of a website
       - netavark
+      # Firewall rules for the pull request previews
+      - nftables
       - passt
       - podman
       # Ansible needs it to add the Caddy repository
@@ -172,7 +174,7 @@
     system: true
     create_home: true
     password_lock: true
-    groups: "{{ ['web'] if item in base_web_users else omit }}"
+    groups: "{{ ['web'] if item in base_caddy_users else omit }}"
   loop: '{{ base_service_users }}'
 
 - name: Read user IDs

@@ -1,0 +1,13 @@
+# Managed by Ansible
+[Unit]
+Description=Wait for preview requests of {{ preview.domain }}
+
+[Path]
+# The deploy API creates a file here after a valid request from GitHub
+# Actions. The script removes the file, so if a request comes while
+# the script is running, this unit starts it again.
+PathExistsGlob={{ preview_deploy }}/requests/*
+Unit=preview.service
+
+[Install]
+WantedBy=default.target

@@ -1,0 +1,37 @@
+---
+# Every pull request with the `preview` label gets a subdomain here and runs
+# as one container. The code in a pull request is not reviewed yet, so all
+# previews live in their own user, away from the websites and their data.
+user: preview
+
+repository: hplush/slowreader
+branch: main
+# GitHub starts both workflows with `workflow_run`, so they run from
+# the default branch, and their tokens are as safe as a normal deploy.
+deploy_workflow: preview-deploy.yml
+clean_workflow: preview-clean.yml
+
+# Pull request 42 becomes `preview-42.slowreader.hplush.dev`
+# from the `ghcr.io/hplush/slowreader:preview-42` image.
+image: ghcr.io/hplush/slowreader
+prefix: preview-
+
+container_port: 2554
+health_path: /health
+# Host ports for the running previews. A server can run as many previews
+# as there are ports in this range.
+ports:
+  from: 9000
+  to: 9099
+
+# One image serves the assets, proxies the feeds, and keeps the data
+# in memory, so a preview never touches a database. The server adds
+# `PROXY_ORIGIN` with the domain of the preview.
+env:
+  ASSETS: '1'
+  DATABASE_URL: memory://
+
+# Every preview is limited like a website, and all of them together get
+# this much memory: previews should slow each other down instead of
+# pushing the websites out of the memory.
+slice_memory: 2G

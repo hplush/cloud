@@ -1,0 +1,45 @@
+# Managed by Ansible
+#
+# A preview runs the code of a pull request, which nobody has reviewed yet.
+#
+# Podman already keeps it out of the host: the container has its own network
+# namespace, so `127.0.0.1` there is its own loopback, Podman passes
+# `--no-map-gw` to pasta, and the container config takes away
+# `host.containers.internal`. From the network the preview is just another
+# client, and these rules keep it away from the addresses which only
+# this server should use.
+#
+# The rules match the user, so they cover every container of this user and
+# every request Podman makes for it. `127.0.0.0/8` stays open: the preview
+# script checks the health of a new container there, and pasta asks
+# the resolver of the host for the container.
+
+table inet {{ preview_table }}
+delete table inet {{ preview_table }}
+
+table inet {{ preview_table }} {
+	chain output {
+		type filter hook output priority filter; policy accept;
+
+		# The cloud metadata service and the private networks
+		meta skuid {{ preview_uid }} ip daddr {
+			10.0.0.0/8,
+			169.254.0.0/16,
+			172.16.0.0/12,
+			192.168.0.0/16
+		} counter reject
+		meta skuid {{ preview_uid }} ip6 daddr {
+			fc00::/7,
+			fe80::/10
+		} counter reject
+
+		# This server itself: a request to our own address would come back
+		# through the firewall as a request from the outside
+{% for address in ansible_facts.all_ipv4_addresses | unique | sort %}
+		meta skuid {{ preview_uid }} ip daddr {{ address }} counter reject
+{% endfor %}
+{% for address in ansible_facts.all_ipv6_addresses | unique | sort %}
+		meta skuid {{ preview_uid }} ip6 daddr {{ address }} counter reject
+{% endfor %}
+	}
+}

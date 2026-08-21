@@ -1,4 +1,12 @@
 # Managed by Ansible
 {{ api_domain }} {
-	reverse_proxy 127.0.0.1:{{ api_port }}
+	# Caddy asks the API whether a preview domain exists before it asks
+	# Let’s Encrypt for the certificate. Nobody outside this server
+	# needs the answer.
+	handle /preview-allowed* {
+		respond "Not found" 404
+	}
+	handle {
+		reverse_proxy 127.0.0.1:{{ api_port }}
+	}
 }

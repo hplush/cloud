@@ -1,0 +1,13 @@
+---
+preview_home: /home/{{ preview.user }}
+preview_uid: '{{ ansible_facts.getent_passwd[preview.user][1] }}'
+preview_state: '{{ preview_home }}/.local/state/previews'
+preview_quadlet: '{{ preview_home }}/.config/containers/systemd'
+# One directory per preview environment, so the domains of one environment
+# can never be mixed with the domains of another one
+preview_caddy: /etc/caddy/previews/{{ preview.domain }}
+preview_deploy: '{{ deploy_dir }}/previews/{{ preview.domain }}'
+# The nftables table with the rules for this user, and the unit which
+# loads it. A table name has no dashes.
+preview_table: "{{ preview.user | replace('-', '_') }}"
+preview_firewall: '{{ preview.user }}-firewall'

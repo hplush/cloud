@@ -51,6 +51,15 @@ A database belongs to one website and publishes no port to the host. It only
 listens in a private Podman network, which is inside the network namespace of
 the website’s user.
 
+### Pull Request Previews
+
+A pull request of a project can get its own subdomain running single image, like `preview-42.slowreader.hplush.dev`.
+
+The code in a pull request is not reviewed yet, so previews live in
+their own user, far from the websites: no database, no shared network,
+no access to the host, and their own memory limit for all of them
+together.
+
 ### Internal Web API
 
 The deploy API is a custom HTTP server written in Node.js. We keep it as source files on the server and run it with the Node.js image.
@@ -65,6 +74,8 @@ Node.js is updated automatically.
 - `.vault-pass`: the Ansible Vault password. Not in Git, create it locally.
 - `group_vars/all.yml`: server-wide settings.
 - `websites/`: one config per website, named after its domain.
+- `previews/`: one config per kind of pull request preview, named after
+  the domain of their subdomains.
 - `site.yml`: the playbook, which calls all roles.
 - `roles/base/`: updates, Livepatch, `fail2ban`, firewall, Podman, users,
   journal limits, and the daily cleanup of old images.
@@ -173,6 +184,57 @@ steps:
         if (!response.ok) core.setFailed(await response.text())
 ```
 
+## Add Pull Request Previews
+
+Copy `previews/slowreader.hplush.dev.yml` and set values. Add `A` and `AAAA`
+DNS wildcard records for `*.YOUR_DOMAIN` to the server.
+
+You mus create `preview` tag to enable preview for the PR only after basic
+review.
+
+Workflow on `pull_request` without permissions should build Docker image
+and upload it to artifacts. Then `workflow_run` workflow should download
+artifact, push it with a preview tag and send HTTP request (this server will validate that request came from specific workflow).
+
+```yaml
+# Download artifact from pull_request workflow and push it with tag
+- name: Deploy the preview
+  uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+  with:
+    script: |
+      let token = await core.getIDToken('https://api.cloud.hplush.dev')
+      let response = await fetch(
+        `https://api.cloud.hplush.dev/deploy/preview-${process.env.PR}.slowreader.hplush.dev`,
+        { method: 'POST', headers: { authorization: `Bearer ${token}` } }
+      )
+      if (!response.ok) core.setFailed(await response.text())
+```
+
+When PR will be closed, `pull_request` workflow with `closed` type will trigger `workflow_run` workflow which will send `DELETE` to the same
+address.
+
+```yaml
+- name: Clean the preview
+  uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+  with:
+    script: |
+      let token = await core.getIDToken('https://api.cloud.hplush.dev')
+      let response = await fetch(
+        `https://api.cloud.hplush.dev/deploy/preview-${process.env.PR}.slowreader.hplush.dev`,
+        { method: 'DELETE', headers: { authorization: `Bearer ${token}` } }
+      )
+      if (!response.ok) core.setFailed(await response.text())
+```
+
+Both wait for the answer, so a preview which does not start fails the workflow.
+
+See examples:
+
+1. [`preview-prepare.yml`](https://github.com/hplush/slowreader/blob/main/.github/workflows/preview-prepare.yml)
+2. [`preview-deploy.yml`](https://github.com/hplush/slowreader/blob/main/.github/workflows/preview-deploy.yml)
+3. [`preview-close.yml`](https://github.com/hplush/slowreader/blob/main/.github/workflows/preview-close.yml)
+4. [`preview-clean.yml`](https://github.com/hplush/slowreader/blob/main/.github/workflows/preview-clean.yml)
+
 ### Debug
 
 Services run as separate users, so their logs are in the system journal:
@@ -183,6 +245,7 @@ sudo journalctl _SYSTEMD_USER_UNIT=api.service
 sudo journalctl _SYSTEMD_USER_UNIT=deploy-hplush.service
 sudo journalctl _SYSTEMD_USER_UNIT=hplush-blue.service
 sudo journalctl _SYSTEMD_USER_UNIT=slowreader-db.service
+sudo journalctl _SYSTEMD_USER_UNIT=preview-42.service
 ```
 
 The units are named after the app, so an app named `slowreader-server` has
@@ -198,6 +261,13 @@ To deploy manually, create the request file, which the website is waiting for:
 
 ```sh
 sudo touch /var/lib/deploy/hplush.dev/requests/manual
+```
+
+To start or to stop a preview by hand, write the request file yourself:
+
+```sh
+echo 'deploy 42' | sudo tee /var/lib/deploy/previews/slowreader.hplush.dev/requests/manual
+echo 'clean 42' | sudo tee /var/lib/deploy/previews/slowreader.hplush.dev/requests/manual
 ```
 
 The deploy script removes the file, writes the answer to
