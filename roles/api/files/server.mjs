@@ -249,7 +249,8 @@ async function route(req) {
   if (!deploy) throw new HttpError(404, 'Unknown endpoint')
 
   let domain = decodeURIComponent(deploy[1])
-  let website = websites[domain]
+  // A plain lookup would also find `constructor` and other inherited keys
+  let website = Object.hasOwn(websites, domain) ? websites[domain] : undefined
   if (website) return deployWebsite(req, domain, website)
 
   let preview = findPreview(domain)
