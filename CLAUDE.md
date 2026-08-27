@@ -1,0 +1,1 @@
+- Always write the registry in the image name, like `docker.io/library/postgres:18` and not `postgres:18`
