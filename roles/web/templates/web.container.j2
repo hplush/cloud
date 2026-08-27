@@ -27,8 +27,14 @@ Environment="{{ name }}={{ value | replace('\\', '\\\\') | replace('"', '\\"') }
 {% endfor %}
 # A website serves files: it needs no capability, and Podman mounts
 # a tmpfs over /run, /tmp, and /var/tmp for a read-only image anyway.
-# An image which writes somewhere else should write to /tmp instead.
 ReadOnly=true
+{% for path in app.writable | default([]) %}
+{% if loop.first %}
+# An image which writes somewhere else asks for the directory in its
+# config. It is a tmpfs too: the files die with the container.
+{% endif %}
+Tmpfs={{ path }}
+{% endfor %}
 DropCapability=all
 NoNewPrivileges=true
 # All our images define a `HEALTHCHECK`, and Podman runs it on its own.

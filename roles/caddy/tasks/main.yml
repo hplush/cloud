@@ -12,10 +12,29 @@
     enabled: true
   register: caddy_repository
 
-- name: Install Caddy
+# Ubuntu Pro pins its own packages to 510, above the 500 of every normal
+# repository, and its Caddy is years behind. Without this file `apt` keeps
+# installing the Ubuntu version and ignores the one we added above.
+- name: Prefer Caddy from the official repository
+  ansible.builtin.copy:
+    content: |
+      # Managed by Ansible
+      Package: caddy
+      Pin: origin dl.cloudsmith.io
+      Pin-Priority: 600
+    dest: /etc/apt/preferences.d/caddy
+    owner: root
+    group: root
+    mode: '0644'
+
+# `latest` and not `present`: the pin only changes which version `apt`
+# picks for a new install, and the server can already have an old one.
+# The configs below use the syntax of the current Caddy, so the upgrade
+# has to happen in the same run and not with the next nightly upgrade.
+- name: Install Caddy # noqa: package-latest
   ansible.builtin.apt:
     name: caddy
-    state: present
+    state: latest
     update_cache: '{{ caddy_repository.changed }}'
 
 # The default admin API listens on `127.0.0.1:2019` and can replace
@@ -51,11 +70,24 @@
     # Current container port of every website. A website user rewrites
     # its own file during the deploy.
     - /etc/caddy/upstreams
+    # The page for visitors when the container behind the domain is down
+    - /etc/caddy/errors
 
 - name: Keep the site directory non-empty for the config glob
   ansible.builtin.copy:
     src: 00-placeholder.caddy
     dest: /etc/caddy/sites/00-placeholder.caddy
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Reload Caddy
+
+# A container which does not answer leaves Caddy with a 502 and an empty
+# body, so every website shows this page instead.
+- name: Add the page for a website which is down
+  ansible.builtin.copy:
+    src: down.html
+    dest: /etc/caddy/errors/down.html
     owner: root
     group: root
     mode: '0644'

@@ -6,6 +6,10 @@ repository: hplush/hplush.dev
 workflow: deploy.yml
 branch: main
 
+# Chainguard’s nginx keeps its temporary files here and not in /tmp
+writable:
+  - /var/lib/nginx/tmp
+
 container_port: 8000
 ports:
   blue: 8011
