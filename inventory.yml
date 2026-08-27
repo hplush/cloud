@@ -3,6 +3,9 @@ all:
   hosts:
     cloud:
       ansible_host: cloud.hplush.dev
+      # `known_hosts` for dev container
+      ansible_ssh_common_args: '-o UserKnownHostsFile={{ playbook_dir }}/known_hosts'
+
       # Ubuntu ships sudo-rs as `sudo`, and it wraps the password prompt
       # into `[sudo: …] Password:`, which Ansible does not recognize.
       ansible_become_exe: /usr/bin/sudo.ws

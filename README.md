@@ -111,6 +111,7 @@ Node.js is updated automatically.
 6. Create users:
 
    ```sh
+   ssh root@cloud.hplush.dev
    adduser ai
    usermod -aG sudo ai
    mkdir -p /home/ai/.ssh
@@ -121,14 +122,21 @@ Node.js is updated automatically.
    exit
    ```
 
-7. Generate the Ansible Vault password to `.vault-pass`:
+7. Create `known_hosts`:
+
+   ```sh
+   ssh-keyscan cloud.hplush.dev > known_hosts
+   ssh-keygen -lf known_hosts
+   ```
+
+8. Generate the Ansible Vault password to `.vault-pass`:
 
    ```sh
    pnpm dlx nanoid --size 32 > .vault-pass
    chmod 600 .vault-pass
    ```
 
-8. Encrypt the [Ubuntu Pro](https://ubuntu.com/pro) token and put the output
+9. Encrypt the [Ubuntu Pro](https://ubuntu.com/pro) token and put the output
    to `group_vars/all.yml`:
 
    ```sh

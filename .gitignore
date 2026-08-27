@@ -2,3 +2,4 @@
 /.vault-pass
 # Ansible CLI, installed by .devcontainer.json
 /.venv
+/known_hosts
