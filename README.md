@@ -100,13 +100,17 @@ Node.js is updated automatically.
    - `TCP 22` only for admin’s IP address
 3. Add `A` and `AAAA` DNS record for `hplush.dev`.
 4. Add `CNAME` for `cloud` and `api.cloud` to `hplush.dev`.
-5. Create an account with `sudo` for every admin from `group_vars/all.yml`
-   and add their SSH key:
+5. Update system:
 
    ```sh
    ssh root@cloud.hplush.dev
    apt update && apt upgrade -y
+   sudo reboot now
+   ```
 
+6. Create users:
+
+   ```sh
    adduser ai
    usermod -aG sudo ai
    mkdir -p /home/ai/.ssh
@@ -114,16 +118,17 @@ Node.js is updated automatically.
    chown -R ai:ai /home/ai/.ssh
    chmod 700 /home/ai/.ssh
    chmod 600 /home/ai/.ssh/authorized_keys
+   exit
    ```
 
-6. Generate the Ansible Vault password to `.vault-pass`:
+7. Generate the Ansible Vault password to `.vault-pass`:
 
    ```sh
    pnpm dlx nanoid --size 32 > .vault-pass
    chmod 600 .vault-pass
    ```
 
-7. Encrypt the [Ubuntu Pro](https://ubuntu.com/pro) token and put the output
+8. Encrypt the [Ubuntu Pro](https://ubuntu.com/pro) token and put the output
    to `group_vars/all.yml`:
 
    ```sh
@@ -132,18 +137,10 @@ Node.js is updated automatically.
 
 ## Deploy Changes
 
-The playbook connects as your own account, so tell SSH which one to use
-in `~/.ssh/config`:
-
-```
-Host cloud.hplush.dev
-  User ai
-```
-
-Then apply the changes and type your `sudo` password when Ansible asks:
+Run deploy and type server’s user password when Ansible asks:
 
 ```sh
-ansible-playbook site.yml --ask-become-pass
+ansible-playbook site.yml --user ai --ask-become-pass
 ```
 
 The playbook is idempotent: it never resets which container currently

@@ -3,5 +3,6 @@ all:
   hosts:
     cloud:
       ansible_host: cloud.hplush.dev
-      # Without `ansible_user` every admin connects as themselves: SSH takes
-      # the name from `~/.ssh/config`, or from the `--user` option.
+      # Ubuntu ships sudo-rs as `sudo`, and it wraps the password prompt
+      # into `[sudo: …] Password:`, which Ansible does not recognize.
+      ansible_become_exe: /usr/bin/sudo.ws
