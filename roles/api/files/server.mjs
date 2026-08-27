@@ -118,11 +118,15 @@ async function verifyToken(token) {
   return payload
 }
 
+function clientGone(req) {
+  return req.socket === null || req.socket.destroyed
+}
+
 async function waitForDeploy(file, req) {
   let deadline = Date.now() + DEPLOY_TIMEOUT
   while (Date.now() < deadline) {
     // GitHub Actions could be canceled while we are waiting
-    if (req.destroyed) throw new HttpError(499, 'The client is gone')
+    if (clientGone(req)) throw new HttpError(499, 'The client is gone')
     let result
     try {
       result = await readFile(file, 'utf8')
@@ -265,7 +269,7 @@ const server = createServer((req, res) => {
   route(req)
     .then(message => {
       // A deploy takes minutes, and the client can leave before the answer
-      if (req.destroyed) return
+      if (clientGone(req)) return
       res.writeHead(200, { 'content-type': 'text/plain' })
       res.end(`${message}\n`)
     })
@@ -274,7 +278,7 @@ const server = createServer((req, res) => {
       if (!(error instanceof HttpError)) console.error(error)
       else if (code >= 500) console.error(error.message)
       else console.warn(`${code}: ${error.message}`)
-      if (req.destroyed) return
+      if (clientGone(req)) return
       res.writeHead(code, { 'content-type': 'text/plain' })
       res.end(`${error.message}\n`)
     })
