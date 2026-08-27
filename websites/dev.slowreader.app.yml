@@ -9,7 +9,7 @@ branch: main
 # Only the containers of this website can reach the database: they share
 # a private network, and the database publishes no port to the host.
 database:
-  image: postgres:18
+  image: docker.io/library/postgres:18
   name: slowreader
 
 apps:
