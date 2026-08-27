@@ -181,7 +181,7 @@ concurrency:
   cancel-in-progress: false
 steps:
   # Some steps of preparing the image
-  - name: Deploy
+  - name: Deploy image
     uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
     with:
       script: |
@@ -190,7 +190,9 @@ steps:
           'https://api.cloud.hplush.dev/deploy/hplush.dev',
           { method: 'POST', headers: { authorization: `Bearer ${token}` } }
         )
-        if (!response.ok) core.setFailed(await response.text())
+        let answer = await response.text()
+        if (response.ok) core.info(answer)
+        else core.setFailed(`${response.status} ${response.statusText}: ${answer}`)
 ```
 
 ## Add Pull Request Previews
@@ -216,7 +218,9 @@ artifact, push it with a preview tag and send HTTP request (this server will val
         `https://api.cloud.hplush.dev/deploy/preview-${process.env.PR}.slowreader.hplush.dev`,
         { method: 'POST', headers: { authorization: `Bearer ${token}` } }
       )
-      if (!response.ok) core.setFailed(await response.text())
+      let answer = await response.text()
+      if (response.ok) core.info(answer)
+      else core.setFailed(`${response.status} ${response.statusText}: ${answer}`)
 ```
 
 When PR will be closed, `pull_request` workflow with `closed` type will trigger `workflow_run` workflow which will send `DELETE` to the same
@@ -232,7 +236,9 @@ address.
         `https://api.cloud.hplush.dev/deploy/preview-${process.env.PR}.slowreader.hplush.dev`,
         { method: 'DELETE', headers: { authorization: `Bearer ${token}` } }
       )
-      if (!response.ok) core.setFailed(await response.text())
+      let answer = await response.text()
+      if (response.ok) core.info(answer)
+      else core.setFailed(`${response.status} ${response.statusText}: ${answer}`)
 ```
 
 Both wait for the answer, so a preview which does not start fails the workflow.
