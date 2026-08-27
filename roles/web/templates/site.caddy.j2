@@ -8,4 +8,12 @@
 	# The port of the container serving the domain right now.
 	# The deploy script rewrites this file.
 	import /etc/caddy/upstreams/{{ app.domain }}.caddy
+
+	handle_errors 5xx {
+		root * /etc/caddy/errors
+		rewrite * /down.html
+		file_server {
+			status {err.status_code}
+		}
+	}
 }
