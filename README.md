@@ -250,7 +250,35 @@ See examples:
 3. [`preview-close.yml`](https://github.com/hplush/slowreader/blob/main/.github/workflows/preview-close.yml)
 4. [`preview-clean.yml`](https://github.com/hplush/slowreader/blob/main/.github/workflows/preview-clean.yml)
 
+## Maintenance
+
+The server updates itself: `unattended-upgrades` installs the packages every
+night, `needrestart` restarts the services which still hold an old library,
+and Livepatch fixes the running kernel. None of this reboots the server,
+so a new kernel waits until we reboot it by hand.
+
+Once a month is good to check does server need a restart to use new kernel.
+
+Every SSH login prints `*** System restart required ***` when a reboot is
+needed. To ask for it and to see what waits for it:
+
+```sh
+sudo needrestart -r l
+```
+
+The websites are down for a minute:
+
+```sh
+sudo reboot
+```
+
 ### Debug
+
+Find failed service:
+
+```sh
+systemctl --failed
+```
 
 Services run as separate users, so their logs are in the system journal:
 
