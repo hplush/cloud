@@ -1,0 +1,17 @@
+---
+user: logux
+
+image: ghcr.io/logux/logux.org:latest
+repository: logux/logux.org
+workflow: ci.yml
+branch: main
+
+# Chainguard’s nginx keeps its temporary files here and not in /tmp
+writable:
+  - /var/lib/nginx/tmp
+
+container_port: 8000
+ports:
+  blue: 8051
+  green: 8052
+health_path: /

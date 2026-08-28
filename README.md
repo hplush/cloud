@@ -6,6 +6,7 @@ Small hosting for non-critical websites such as:
 1. Development preview of [Slow Reader](github.com/hplush/slowreader)
 1. [Browserslist REPL](https://browsersl.ist/)
 1. [Sitnik personal website](https://sitnik.es/)
+1. [Logux website](https://logux.org/)
 
 It is based on:
 
