@@ -34,7 +34,8 @@ env:
 # Every preview is limited like a website, and all of them together get
 # this much memory: previews should slow each other down instead of
 # pushing the websites out of the memory.
-slice_memory: 2G
+memory: 1G
+slice_memory: 4G
 
 # A preview which nobody redeployed for this many days is cleaned even if
 # its pull request is still open, so a forgotten preview does not serve
