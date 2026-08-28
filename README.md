@@ -195,6 +195,8 @@ steps:
         else core.setFailed(`${response.status} ${response.statusText}: ${answer}`)
 ```
 
+See [full example](./docs/workflow.yml).
+
 ## Add Pull Request Previews
 
 Copy `previews/slowreader.hplush.dev.yml` and set values. Add `A` and `AAAA`
