@@ -7,7 +7,7 @@
     <title>500</title>
     <style>
       html {
-        background: #fff;
+        background: oklch(0.8 0.1 30);
         color: #1a1a1a;
         font: 16px/1.5 monospace;
       }
@@ -29,15 +29,11 @@
       }
       p {
         margin: 0;
-        color: #666;
       }
       @media (prefers-color-scheme: dark) {
         html {
-          background: #1a1a1a;
-          color: #fff;
-        }
-        p {
-          color: #aaa;
+          background: oklch(0.3 0.07 30);
+          color: oklch(1 0 0);
         }
       }
     </style>
