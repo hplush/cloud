@@ -3,7 +3,7 @@ user: hplush
 
 image: ghcr.io/hplush/hplush.dev:latest
 repository: hplush/hplush.dev
-workflow: deploy.yml
+workflow: ci.yml
 branch: main
 
 # Chainguard’s nginx keeps its temporary files here and not in /tmp
