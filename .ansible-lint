@@ -1,2 +1,3 @@
----
 profile: production
+exclude_paths:
+  - docs/
