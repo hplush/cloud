@@ -95,6 +95,16 @@ EnvironmentFile=$STATE/$pr/env
 ReadOnly=true
 DropCapability=all
 NoNewPrivileges=true
+# The syscalls of a preview go to gVisor and not to the host kernel, so
+# a kernel exploit inside the container is not enough to leave it: it
+# would need a bug in the sandbox as well. The websites keep the default
+# runtime, whose images we build ourselves.
+GlobalArgs=--runtime=/usr/bin/runsc
+# Rootless \`runsc\` cannot manage cgroups, and it does not have to: the
+# limits below are systemd properties of this unit, and the sandbox runs
+# inside its cgroup. Never move a limit to \`[Container]\` though —
+# \`runsc\` would ignore it without an error.
+GlobalArgs=--runtime-flag=ignore-cgroups
 HealthOnFailure=kill
 
 [Service]

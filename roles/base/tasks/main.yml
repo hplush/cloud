@@ -36,6 +36,33 @@
     update_cache: true
     cache_valid_time: 3600
 
+# The code in a pull request is not reviewed yet, so previews answer their
+# syscalls in gVisor instead of the host kernel. The websites and the
+# database keep the default runtime: we build their images ourselves, and
+# gVisor costs both memory and network throughput.
+- name: Install the gVisor runtime for the pull request previews
+  when: previews | length > 0
+  block:
+    # The official repository allows unattended-upgrades to update gVisor
+    - name: Add the gVisor repository
+      ansible.builtin.deb822_repository:
+        name: gvisor
+        types: deb
+        uris: https://storage.googleapis.com/gvisor/releases
+        # Like Caddy, gVisor serves one suite for every Debian and Ubuntu
+        suites: release
+        components: main
+        signed_by: https://gvisor.dev/archive.key
+        state: present
+        enabled: true
+      register: base_gvisor_repository
+
+    - name: Install gVisor
+      ansible.builtin.apt:
+        name: runsc
+        state: present
+        update_cache: '{{ base_gvisor_repository.changed }}'
+
 - name: Set bash settings for the admins
   ansible.builtin.blockinfile:
     path: /home/{{ item }}/.bashrc

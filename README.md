@@ -13,6 +13,7 @@ It is based on:
 - Ubuntu 26.04 LTS + Canonical Livepatch
 - Ansible
 - Rootless Podman/Quadlet for each service
+- gVisor for the pull request previews
 - Caddy web server as a balancer
 
 ## Goals
@@ -63,6 +64,13 @@ together. The preview user never writes Caddy config itself: it asks
 the root `preview-route` wrapper, which validates the pull request
 number and the port and writes the route from its own template.
 
+A preview also runs on a different container runtime. The syscalls of a
+website go to the host kernel, and one kernel bug is enough to leave the
+container. The syscalls of a preview go to gVisor, a kernel written in
+userspace, so an escape needs a bug there as well. It costs memory and
+network throughput, which is why the websites and the database keep the
+default runtime: we build their images ourselves.
+
 A preview stops with its pull request, and a daily timer also cleans
 every preview which nobody redeployed for `max_days` (30 by default),
 so a failed clean workflow can’t leave unreviewed code running forever.
@@ -84,8 +92,8 @@ Node.js is updated automatically.
 - `previews/`: one config per kind of pull request preview, named after
   the domain of their subdomains.
 - `site.yml`: the playbook, which calls all roles.
-- `roles/base/`: updates, Livepatch, `fail2ban`, firewall, Podman, users,
-  journal limits, and the daily cleanup of old images.
+- `roles/base/`: updates, Livepatch, `fail2ban`, firewall, Podman, gVisor,
+  users, journal limits, and the daily cleanup of old images.
 - `roles/caddy/`: Caddy and the domain configs.
 - `roles/api/`: the internal web API for GitHub Actions.
 - `roles/web/`: a user, two containers, and the deploy script for a website.

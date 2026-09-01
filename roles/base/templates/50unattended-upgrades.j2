@@ -13,6 +13,9 @@ Unattended-Upgrade::Origins-Pattern {
     "origin=UbuntuESM,archive=${distro_codename}-infra-security";
     // The Caddy repository serves one suite for every Debian and Ubuntu
     "origin=cloudsmith/caddy/stable,archive=any-version";
+    // gVisor, the runtime of the pull request previews. Its Release file
+    // has no label, so the suite is the only other thing to match on.
+    "origin=Google,archive=release";
 };
 
 Unattended-Upgrade::Remove-Unused-Kernel-Packages "true";
