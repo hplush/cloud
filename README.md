@@ -274,13 +274,21 @@ Every SSH login prints `*** System restart required ***` when a reboot is
 needed. To ask for it and to see what waits for it:
 
 ```sh
+ssh ai@cloud.hplush.dev
 sudo needrestart -r l
 ```
 
-The websites are down for a minute:
+Full reboot to update kernel.
 
 ```sh
 sudo reboot
+```
+
+Or, if the kernel is fine, restart everything from that list without a reboot.
+It restarts the user managers too, so the websites are down for a few seconds:
+
+```sh
+sudo needrestart -b -r l | awk -F': ' '/^NEEDRESTART-SVC/{print $2} /^NEEDRESTART-SESS/{split($2,u," ");c="id -u "u[1];c|getline i;close(c);print "user@"i".service"}' | sort -u | xargs -r sudo systemctl restart
 ```
 
 ### Debug
