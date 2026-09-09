@@ -40,6 +40,7 @@ apps:
       green: 8044
     health_path: /health
     env:
+      BEHIND_BALANCER: '1'
       PROXY_ORIGIN: ^https:\/\/dev\.slowreader\.app$
 
   # Server to sync the data between the devices of a user

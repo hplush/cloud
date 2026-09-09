@@ -29,6 +29,7 @@ ports:
 # `PROXY_ORIGIN` with the domain of the preview.
 env:
   ASSETS: '1'
+  BEHIND_BALANCER: '1'
   DATABASE_URL: memory://
 
 # Every preview is limited like a website, and all of them together get
