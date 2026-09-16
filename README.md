@@ -67,9 +67,12 @@ number and the port and writes the route from its own template.
 A preview also runs on a different container runtime. The syscalls of a
 website go to the host kernel, and one kernel bug is enough to leave the
 container. The syscalls of a preview go to gVisor, a kernel written in
-userspace, so an escape needs a bug there as well. It costs memory and
-network throughput, which is why the websites and the database keep the
-default runtime: we build their images ourselves.
+userspace, so an escape needs a bug there as well. Only its network syscalls
+go to the host kernel: the stack of gVisor does not talk to the tap device
+of pasta, and the published port would stay unreachable. The preview still
+has its own network namespace and the firewall rules of its user. gVisor
+costs memory and network throughput, which is why the websites and
+the database keep the default runtime: we build their images ourselves.
 
 A preview stops with its pull request, and a daily timer also cleans
 every preview which nobody redeployed for `max_days` (30 by default),

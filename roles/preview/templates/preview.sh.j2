@@ -105,6 +105,13 @@ GlobalArgs=--runtime=/usr/bin/runsc
 # inside its cgroup. Never move a limit to \`[Container]\` though —
 # \`runsc\` would ignore it without an error.
 GlobalArgs=--runtime-flag=ignore-cgroups
+# The network stack of \`runsc\` does not talk to the tap device which pasta
+# puts in the namespace: the container starts and listens, but a request to
+# the published port dies on the way in, so the health check below never
+# passes. This flag moves the network syscalls, and only them, to the host
+# kernel. The preview still gets its own network namespace, its own pasta,
+# and the firewall rules of its user, so it reaches nothing of this server.
+GlobalArgs=--runtime-flag=network=host
 HealthOnFailure=kill
 
 [Service]
