@@ -25,12 +25,18 @@ ports:
   to: 9099
 
 # One image serves the assets, proxies the feeds, and keeps the data
-# in memory, so a preview never touches a database. The server adds
-# `PROXY_ORIGIN` with the domain of the preview.
+# in memory, so a preview never touches a database. `{host}` becomes
+# the domain of the preview and `{host_regexp}` the same domain
+# with escaped dots.
 env:
   ASSETS: '1'
   BEHIND_BALANCER: '1'
   DATABASE_URL: memory://
+  # The CORS proxy inside the image takes a RegExp for the `Origin` header.
+  # Podman reads the env file as is, so the backslashes stay backslashes.
+  PROXY_ORIGIN: ^https:\/\/{host_regexp}$
+  # Passkeys and CORS of the server accept only this exact origin
+  WEB_ORIGIN: https://{host}
 
 # Every preview is limited like a website, and all of them together get
 # this much memory: previews should slow each other down instead of

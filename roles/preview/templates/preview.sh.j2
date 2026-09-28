@@ -61,15 +61,21 @@ free_port() {
   return 1
 }
 
+# Puts the domain of the preview into an environment value:
+# `{host}` as is and `{host_regexp}` with escaped dots for a RegExp
+expand() {
+  local host=$1 value=$2
+  value=${value//"{host_regexp}"/"${host//./\\.}"}
+  value=${value//"{host}"/"$host"}
+  printf '%s\n' "$value"
+}
+
 environment() {
   local host=$1
   echo "# Managed by preview.sh"
 {% for name, value in (preview.env | default({})).items() %}
-  echo '{{ name }}={{ value | replace("'", "'\\''") }}'
+  echo "{{ name }}=$(expand "$host" '{{ value | replace("'", "'\\''") }}')"
 {% endfor %}
-  # The CORS proxy inside the image takes a RegExp for the `Origin` header.
-  # Podman reads this file as is, so the backslashes stay backslashes.
-  echo "PROXY_ORIGIN=^https:\\/\\/${host//./\\.}\$"
 }
 
 container() {

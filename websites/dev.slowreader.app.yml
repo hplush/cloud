@@ -62,3 +62,5 @@ apps:
       # server only syncs the data
       ASSETS: ''
       PROXY_ORIGIN: ''
+      # Passkeys and CORS work only for the web client on this origin
+      WEB_ORIGIN: https://dev.slowreader.app
