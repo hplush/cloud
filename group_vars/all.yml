@@ -31,6 +31,11 @@ api_node_image: registry.access.redhat.com/hi/nodejs:26
 # GitHub Actions must ask for an OIDC token with exactly this audience
 api_audience: https://api.cloud.hplush.dev
 
+# Test attestation tokens for apps with `attestation: true`
+attestation_user: attestation
+attestation_domain: cloud.hplush.dev
+attestation_dir: /var/lib/attestation
+
 # GitHub Actions deploy requests are passed to website users through this
 # directory: the deploy API writes a trigger file, the website user’s
 # systemd path unit reacts to it.

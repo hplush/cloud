@@ -1,0 +1,8 @@
+{
+  "issuer": {{ ('https://' ~ attestation_domain) | to_json }},
+  "containers": [
+{% for app, color in attestation_apps | product(['blue', 'green']) %}
+    {{ {'user': app.user, 'name': app.name ~ '-' ~ color, 'image': app.image} | to_json }}{{ "," if not loop.last else "" }}
+{% endfor %}
+  ]
+}

@@ -68,6 +68,8 @@
     - caddy
     # Internal web API, which GitHub Actions calls to deploy new images
     - api
+    # Test attestation tokens for websites
+    - attestation
 
   tasks:
     - name: Configure web services

@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+# Managed by Ansible
+#
+# Tells the attestation signer which image a website container runs:
+#
+#   attestation-register NAME IMAGE
+#   attestation-register --remove NAME
+
+set -euo pipefail
+umask 022
+
+if [ "${1-}" = "--remove" ]; then
+  remove=yes name=${2-} image=
+else
+  remove=no name=${1-} image=${2-}
+fi
+
+if ! [[ "$name" =~ ^[a-z0-9][a-z0-9-]*$ ]]; then
+  echo "$name is not a container name" >&2
+  exit 1
+fi
+
+registry="{{ attestation_dir }}/registry/$(id -un)"
+file="$registry/$name.json"
+
+# A failure must not leave the digest of the previous image
+rm -f "$file"
+if [ "$remove" = yes ]; then
+  exit 0
+fi
+
+# No quotes or backslashes for the JSON below
+if ! [[ "$image" =~ ^[A-Za-z0-9][A-Za-z0-9./:@_-]*$ ]]; then
+  echo "$image is not an image name" >&2
+  exit 1
+fi
+
+# The same `.Digest` as in the deploy log
+{% raw %}
+info=$(podman image inspect --format '{{.Id}} {{.Digest}}' "$image")
+{% endraw %}
+read -r id digest <<< "$info"
+if ! [[ "$id" =~ ^[0-9a-f]{64}$ ]]; then
+  echo "$image has an unexpected ID $id" >&2
+  exit 1
+fi
+if ! [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+  echo "$image has an unexpected digest $digest" >&2
+  exit 1
+fi
+
+# One rename, so the signer never reads a partial file
+tmp=$(mktemp "$registry/.$name.XXXXXX")
+trap 'rm -f "$tmp"' EXIT
+printf '{"image_reference":"%s","image_digest":"%s","image_id":"sha256:%s"}\n' \
+  "$image" "$digest" "$id" > "$tmp"
+chmod 0644 "$tmp"
+mv --force -- "$tmp" "$file"

@@ -23,6 +23,8 @@
       - netavark
       # Firewall rules for the pull request previews
       - nftables
+      # Generates the signing key of the attestation signer
+      - openssl
       - passt
       - podman
       # Ansible needs it to add the Caddy repository

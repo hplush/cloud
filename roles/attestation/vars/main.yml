@@ -1,0 +1,5 @@
+---
+attestation_home: /home/{{ attestation_user }}
+attestation_uid: '{{ ansible_facts.getent_passwd[attestation_user][1] }}'
+attestation_apps: "{{ web_apps | selectattr('attestation', 'defined') | selectattr('attestation') | list }}"
+attestation_users: "{{ attestation_apps | map(attribute='user') | unique | list }}"

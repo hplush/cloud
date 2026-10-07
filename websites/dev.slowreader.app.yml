@@ -36,6 +36,7 @@ apps:
     # `/health` asks the database, so the deploy waits for a working
     # connection before it switches the domain to the new container
     health_path: /health
+    attestation: true
     env:
       ROLE: app
       STAGING: '1'

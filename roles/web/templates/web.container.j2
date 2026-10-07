@@ -25,6 +25,10 @@ EnvironmentFile={{ web_state }}/database/url.env
 {% endif %}
 Environment="{{ name }}={{ value | replace('\\', '\\\\') | replace('"', '\\"') }}"
 {% endfor %}
+{% if app.attestation | default(false) %}
+# Not the socket file: the signer recreates it on every restart
+Volume={{ attestation_dir }}/sockets/{{ service.user }}/{{ app.name }}-{{ color }}:/run/container_launcher:ro
+{% endif %}
 # A website serves files: it needs no capability, and Podman mounts
 # a tmpfs over /run, /tmp, and /var/tmp for a read-only image anyway.
 ReadOnly=true
@@ -53,6 +57,11 @@ TimeoutStartSec=300
 MemoryMax={{ app.memory | default('512M') }}
 CPUQuota={{ app.cpu | default('100%') }}
 TasksMax={{ app.tasks | default(512) }}
+{% if app.attestation | default(false) %}
+# `-`, because a broken attestation must not stop the website
+ExecStartPre=-/usr/local/bin/attestation-register {{ app.name }}-{{ color }} {{ app.image }}
+ExecStopPost=-/usr/local/bin/attestation-register --remove {{ app.name }}-{{ color }}
+{% endif %}
 
 [Install]
 WantedBy=default.target

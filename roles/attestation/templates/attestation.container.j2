@@ -1,0 +1,37 @@
+# Managed by Ansible
+[Unit]
+Description=Test version of Google Confidential Space attestation
+
+[Container]
+Image={{ api_node_image }}
+AutoUpdate=registry
+Exec=node /app/server.mjs
+Environment=CONFIG=/app/containers.json
+Environment=KEY=/key/private.pem
+Environment=DIR={{ attestation_dir }}
+# Even a bug in the signer can’t send the key anywhere
+Network=none
+Volume={{ attestation_home }}/app:/app:ro
+Volume={{ attestation_home }}/key:/key:ro
+Volume={{ attestation_dir }}/caddy:{{ attestation_dir }}/caddy:rw
+Volume={{ attestation_dir }}/sockets:{{ attestation_dir }}/sockets:rw
+Volume={{ attestation_dir }}/registry:{{ attestation_dir }}/registry:ro
+ReadOnly=true
+Tmpfs=/tmp
+DropCapability=all
+NoNewPrivileges=true
+# The image user becomes the host user to read the key
+UserNS=keep-id:uid=65532,gid=65532
+HealthCmd=node /app/health.mjs
+HealthInterval=1m
+HealthOnFailure=kill
+
+[Service]
+Restart=always
+RestartSec=5
+MemoryMax=128M
+CPUQuota=50%
+TasksMax=64
+
+[Install]
+WantedBy=default.target

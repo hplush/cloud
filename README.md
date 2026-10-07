@@ -82,6 +82,17 @@ if the cleanup workflow fails.
 The deploy API is a custom Node.js HTTP server. Its source files live on
 the server and run in an automatically updated Node.js image.
 
+### Test Attestation
+
+To test code for Google Cloud [Confidential Space], apps with
+`attestation: true` get its token socket. Tokens are signed on this server,
+so they prove nothing.
+
+The issuer is `https://cloud.hplush.dev` with keys
+at `https://cloud.hplush.dev/.well-known/jwks.json`.
+
+[Confidential Space]: https://docs.cloud.google.com/confidential-computing/confidential-space/docs/connect-external-resources
+
 ## Files
 
 - `inventory.yml`: server address and SSH account.
@@ -96,6 +107,7 @@ the server and run in an automatically updated Node.js image.
   users, journal limits, and daily image cleanup.
 - `roles/caddy/`: Caddy and domain configs.
 - `roles/api/`: internal web API for GitHub Actions.
+- `roles/attestation/`: test attestation tokens.
 - `roles/web/`: website user, two containers, and deploy script.
 
 ## Prepare the Server
@@ -297,6 +309,7 @@ Services run as separate users; read their logs in the system journal:
 ```sh
 sudo journalctl -u caddy
 sudo journalctl _SYSTEMD_USER_UNIT=api.service
+sudo journalctl _SYSTEMD_USER_UNIT=attestation.service
 sudo journalctl _SYSTEMD_USER_UNIT=deploy-hplush.service
 sudo journalctl _SYSTEMD_USER_UNIT=hplush-blue.service
 sudo journalctl _SYSTEMD_USER_UNIT=slowreader-db.service

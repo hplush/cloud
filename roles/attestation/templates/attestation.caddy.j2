@@ -1,0 +1,10 @@
+# Managed by Ansible
+{{ attestation_domain }} {
+	# Not `file_server`: Caddy follows symlinks, and the signer could link TLS keys
+	handle /.well-known/jwks.json {
+		reverse_proxy unix/{{ attestation_dir }}/caddy/jwks.sock
+	}
+	handle {
+		respond "Not found" 404
+	}
+}

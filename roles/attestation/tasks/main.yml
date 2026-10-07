@@ -1,0 +1,157 @@
+---
+- name: Create the directories for the attestation signer
+  ansible.builtin.file:
+    path: '{{ item }}'
+    state: directory
+    owner: '{{ attestation_user }}'
+    group: '{{ attestation_user }}'
+    mode: '0755'
+  loop:
+    - '{{ attestation_home }}/app'
+    - '{{ attestation_home }}/.config/containers/systemd'
+
+- name: Create the directory for the signing key
+  ansible.builtin.file:
+    path: '{{ attestation_home }}/key'
+    state: directory
+    owner: '{{ attestation_user }}'
+    group: '{{ attestation_user }}'
+    mode: '0700'
+
+# Like the database password, the key never leaves the server
+- name: Generate the signing key
+  ansible.builtin.command: >-
+    openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048
+    -out {{ attestation_home }}/key/private.pem
+  args:
+    creates: '{{ attestation_home }}/key/private.pem'
+  notify: Restart the attestation signer
+
+- name: Let only the signer read the signing key
+  ansible.builtin.file:
+    path: '{{ attestation_home }}/key/private.pem'
+    owner: '{{ attestation_user }}'
+    group: '{{ attestation_user }}'
+    mode: '0600'
+
+# Not the signer, so a signer outage never stops a website container
+- name: Create the directories for attestation
+  ansible.builtin.file:
+    path: '{{ item }}'
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  loop:
+    - '{{ attestation_dir }}'
+    - '{{ attestation_dir }}/registry'
+    - '{{ attestation_dir }}/sockets'
+
+- name: Create the socket directory for Caddy
+  ansible.builtin.file:
+    path: '{{ attestation_dir }}/caddy'
+    state: directory
+    owner: '{{ attestation_user }}'
+    group: caddy
+    mode: '0750'
+
+- name: Create the registry of every website with attestation
+  ansible.builtin.file:
+    path: '{{ attestation_dir }}/registry/{{ item }}'
+    state: directory
+    owner: '{{ item }}'
+    group: '{{ attestation_user }}'
+    mode: '0750'
+  loop: '{{ attestation_users }}'
+
+# Only this website user can reach its sockets, but can’t replace them
+- name: Create the socket directory of every website with attestation
+  ansible.builtin.file:
+    path: '{{ attestation_dir }}/sockets/{{ item }}'
+    state: directory
+    owner: '{{ attestation_user }}'
+    group: '{{ item }}'
+    mode: '0750'
+  loop: '{{ attestation_users }}'
+
+# Container processes are “others” on the host and need `--x`
+- name: Create the socket directory of every container with attestation
+  ansible.builtin.file:
+    path: '{{ attestation_dir }}/sockets/{{ item.0.user }}/{{ item.0.name }}-{{ item.1 }}'
+    state: directory
+    owner: '{{ attestation_user }}'
+    group: '{{ attestation_user }}'
+    mode: '0711'
+  loop: "{{ attestation_apps | product(['blue', 'green']) | list }}"
+  loop_control:
+    label: '{{ item.0.name }}-{{ item.1 }}'
+
+- name: Install the script which registers the image of a container
+  ansible.builtin.template:
+    src: attestation-register.j2
+    dest: /usr/local/bin/attestation-register
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Copy the attestation signer sources
+  ansible.builtin.copy:
+    src: '{{ item }}'
+    dest: '{{ attestation_home }}/app/{{ item }}'
+    owner: '{{ attestation_user }}'
+    group: '{{ attestation_user }}'
+    mode: '0644'
+  loop:
+    - server.mjs
+    - health.mjs
+  notify: Restart the attestation signer
+
+- name: Configure which containers can ask for a token
+  ansible.builtin.template:
+    src: containers.json.j2
+    dest: '{{ attestation_home }}/app/containers.json'
+    owner: '{{ attestation_user }}'
+    group: '{{ attestation_user }}'
+    mode: '0644'
+  notify: Restart the attestation signer
+
+- name: Create the attestation signer container
+  ansible.builtin.template:
+    src: attestation.container.j2
+    dest: '{{ attestation_home }}/.config/containers/systemd/attestation.container'
+    owner: '{{ attestation_user }}'
+    group: '{{ attestation_user }}'
+    mode: '0644'
+  notify: Restart the attestation signer
+
+- name: Start the attestation signer
+  become: true
+  become_user: '{{ attestation_user }}'
+  environment:
+    XDG_RUNTIME_DIR: /run/user/{{ attestation_uid }}
+  ansible.builtin.systemd_service:
+    name: attestation.service
+    scope: user
+    state: started
+    daemon_reload: true
+
+# Node.js uses a rolling tag, so Podman can update it without our help
+- name: Update the Node.js image of the signer automatically
+  become: true
+  become_user: '{{ attestation_user }}'
+  environment:
+    XDG_RUNTIME_DIR: /run/user/{{ attestation_uid }}
+  ansible.builtin.systemd_service:
+    name: podman-auto-update.timer
+    scope: user
+    enabled: true
+    state: started
+
+- name: Add the attestation domain to Caddy
+  ansible.builtin.template:
+    src: attestation.caddy.j2
+    dest: /etc/caddy/sites/{{ attestation_domain }}.caddy
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Reload Caddy
