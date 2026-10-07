@@ -1,6 +1,6 @@
 ---
-# Staging of Slow Reader: three apps of the same repository, which share
-# one user and one private network with PostgreSQL.
+# Staging of Slow Reader: two apps of the same image, which share one user
+# and one private network with PostgreSQL.
 user: slowreader
 
 repository: hplush/slowreader
@@ -13,54 +13,49 @@ database:
   name: slowreader
 
 apps:
-  # Web client assets, served by nginx
-  - name: slowreader-web
+  # Web client and server to sync the data between the devices of a user.
+  # nginx inside the image serves the assets and passes other requests
+  # to the server.
+  - name: slowreader-app
     domain: dev.slowreader.app
-    image: ghcr.io/hplush/slowreader-web:dev
-    # Every app has its own workflow, and only that workflow can deploy it.
-    # The web client is built by the general CI workflow of the repository.
+    # Clients of old builds connect to the old domain of the server
+    aliases:
+      - server.dev.slowreader.app
+    image: ghcr.io/hplush/slowreader:dev
+    # Every app has its own workflow, and only that workflow can deploy it
     workflow: main.yml
     # Chainguard’s nginx keeps its temporary files here and not in /tmp
     writable:
       - /var/lib/nginx/tmp
-    container_port: 8000
+    container_port: 2553
     ports:
       blue: 8041
       green: 8042
-    health_path: /favicon.ico
-
-  # CORS proxy, which the web client uses to load RSS feeds
-  - name: slowreader-proxy
-    domain: proxy.dev.slowreader.app
-    image: ghcr.io/hplush/slowreader-proxy:dev
-    workflow: proxy.yml
-    container_port: 5284
-    ports:
-      blue: 8043
-      green: 8044
-    health_path: /health
-    env:
-      BEHIND_BALANCER: '1'
-      PROXY_ORIGIN: ^https:\/\/dev\.slowreader\.app$
-
-  # Server to sync the data between the devices of a user
-  - name: slowreader-server
-    domain: server.dev.slowreader.app
-    image: ghcr.io/hplush/slowreader:dev
-    workflow: server.yml
-    container_port: 2554
-    ports:
-      blue: 8045
-      green: 8046
     # Adds `DATABASE_URL` and puts the container into the private network
     database: true
     # `/health` asks the database, so the deploy waits for a working
     # connection before it switches the domain to the new container
     health_path: /health
     env:
-      # The apps above serve the assets and proxy the feeds, so this
-      # server only syncs the data
-      ASSETS: ''
-      PROXY_ORIGIN: ''
+      ROLE: app
+      STAGING: '1'
+      BEHIND_BALANCER: '1'
       # Passkeys and CORS work only for the web client on this origin
       WEB_ORIGIN: https://dev.slowreader.app
+
+  # CORS proxy, which the web client uses to load RSS feeds. It has its own
+  # domain, so proxied content can’t access the app’s storage, and the server
+  # can’t link feed URLs to the user’s account.
+  - name: slowreader-proxy
+    domain: proxy.dev.slowreader.app
+    image: ghcr.io/hplush/slowreader:dev
+    workflow: main.yml
+    container_port: 2553
+    ports:
+      blue: 8043
+      green: 8044
+    health_path: /health
+    env:
+      ROLE: proxy
+      BEHIND_BALANCER: '1'
+      PROXY_ORIGIN: ^https:\/\/dev\.slowreader\.app$

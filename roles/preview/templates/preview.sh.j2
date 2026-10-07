@@ -99,6 +99,13 @@ EnvironmentFile=$STATE/$pr/env
 # less than a website: no capability, no writable file system, and no way
 # to the private networks of the websites.
 ReadOnly=true
+{% for path in preview.writable | default([]) %}
+{% if loop.first %}
+# An image which writes somewhere else asks for the directory in its
+# config. It is a tmpfs: the files die with the container.
+{% endif %}
+Tmpfs={{ path }}
+{% endfor %}
 DropCapability=all
 NoNewPrivileges=true
 # The syscalls of a preview go to gVisor and not to the host kernel, so

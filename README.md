@@ -303,8 +303,8 @@ sudo journalctl _SYSTEMD_USER_UNIT=slowreader-db.service
 sudo journalctl _SYSTEMD_USER_UNIT=preview-42.service
 ```
 
-Units use app names: `slowreader-server` has
-`slowreader-server-blue.service` and `deploy-slowreader-server.service`.
+Units use app names: `slowreader-app` has
+`slowreader-app-blue.service` and `deploy-slowreader-app.service`.
 
 Open a website’s database:
 
