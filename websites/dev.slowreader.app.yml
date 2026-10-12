@@ -36,6 +36,9 @@ apps:
     # `/health` asks the database, so the deploy waits for a working
     # connection before it switches the domain to the new container
     health_path: /health
+    # The image has attestations, so it is OCI and Podman ignores its own
+    # `HEALTHCHECK`. We repeat the check from the Dockerfile here.
+    health_cmd: /usr/bin/httpcheck http://localhost:2553/health
     env:
       ROLE: app
       STAGING: '1'
@@ -55,6 +58,7 @@ apps:
       blue: 8043
       green: 8044
     health_path: /health
+    health_cmd: /usr/bin/httpcheck http://localhost:2553/health
     env:
       ROLE: proxy
       BEHIND_BALANCER: '1'

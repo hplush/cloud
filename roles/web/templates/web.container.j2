@@ -41,6 +41,14 @@ NoNewPrivileges=true
 # `Restart=always` alone only covers a crash, while an application can also
 # hang: `kill` stops such a container, and systemd starts it again.
 HealthOnFailure=kill
+{% if app.health_cmd is defined %}
+# Podman reads `HEALTHCHECK` only from Docker-format images. An image with
+# attestations is always OCI, so its config sets the command here instead.
+HealthCmd={{ app.health_cmd }}
+HealthInterval=30s
+HealthTimeout=3s
+HealthRetries=3
+{% endif %}
 
 [Service]
 Restart=always
