@@ -1,0 +1,37 @@
+---
+# Every pull request with the `deploy-preview` label gets a subdomain here and runs
+# as one container. The code in a pull request is not reviewed yet, so all
+# previews live in their own user, away from the websites and their data.
+user: nanostores-preview
+
+repository: nanostores/nanostores.net
+branch: main
+# GitHub starts both workflows with `workflow_run`, so they run from
+# the default branch, and their tokens are as safe as a normal deploy.
+deploy_workflow: preview-deploy.yml
+clean_workflow: preview-clean.yml
+
+# Pull request 42 becomes `preview-42.nanostores.hplush.dev`
+# from the `ghcr.io/nanostores/nanostores.net:preview-42` image.
+image: ghcr.io/nanostores/nanostores.net
+prefix: preview-
+
+container_port: 8000
+health_path: /
+# Chainguard’s nginx keeps its temporary files here and not in /tmp
+writable:
+  - /var/lib/nginx/tmp
+# Host ports for the running previews. A server can run as many previews
+# as there are ports in this range.
+ports:
+  from: 9100
+  to: 9199
+
+# Static website needs less memory than the default
+memory: 128M
+slice_memory: 1G
+
+# A preview which nobody redeployed for this many days is cleaned even if
+# its pull request is still open, so a forgotten preview does not serve
+# unreviewed code forever.
+max_days: 30

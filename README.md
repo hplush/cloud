@@ -207,7 +207,7 @@ See [full example](./docs/workflow.yml).
 
 1. Copy `previews/slowreader.hplush.dev.yml` and configure it.
 2. Point wildcard `A` and `AAAA` records for `*.YOUR_DOMAIN` to the server.
-3. Create a `preview` label; apply it to PRs only after basic review.
+3. Create a `deploy-preview` label; apply it to PRs only after basic review.
 4. Use a `pull_request` workflow without permissions to build a Docker image
    and upload it as an artifact.
 5. Use a `workflow_run` workflow to download the artifact, push it with

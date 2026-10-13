@@ -1,5 +1,5 @@
 ---
-# Every pull request with the `preview` label gets a subdomain here and runs
+# Every pull request with the `deploy-preview` label gets a subdomain here and runs
 # as one container. The code in a pull request is not reviewed yet, so all
 # previews live in their own user, away from the websites and their data.
 user: slowreader-preview
