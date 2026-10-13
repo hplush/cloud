@@ -1,0 +1,17 @@
+---
+user: nanostores
+
+image: ghcr.io/nanostores/nanostores.net:latest
+repository: nanostores/nanostores.net
+workflow: ci.yml
+branch: main
+
+# Chainguard’s nginx keeps its temporary files here and not in /tmp
+writable:
+  - /var/lib/nginx/tmp
+
+container_port: 8000
+ports:
+  blue: 8061
+  green: 8062
+health_path: /

@@ -7,6 +7,7 @@ Small hosting for non-critical websites:
 1. [Browserslist REPL](https://browsersl.ist/)
 1. [Sitnik personal website](https://sitnik.es/)
 1. [Logux website](https://logux.org/)
+1. [Nano Stores website](https://nanostores.net/)
 
 Stack:
 
