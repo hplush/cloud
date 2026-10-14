@@ -49,6 +49,17 @@
     - '{{ preview_home }}/.local/bin'
     - '{{ preview_state }}'
 
+# Without this task the next one creates the parent directory with
+# the owner and the mode of the first preview environment, and the users
+# of other environments could not reach their own directories inside it
+- name: Create the parent deploy directory for all previews
+  ansible.builtin.file:
+    path: '{{ deploy_dir }}/previews'
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
 # The deploy API writes a request to `requests/` and waits for the answer
 # in `results/`. It also reads `running/` to tell Caddy which preview may
 # get a certificate, and the preview script keeps that directory.
