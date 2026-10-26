@@ -13,4 +13,5 @@ ports:
 health_path: /health
 # The image is OCI, so Podman ignores its own `HEALTHCHECK`.
 # We repeat the check from the Dockerfile here.
-health_cmd: /bin/httpcheck http://localhost:8080/health
+# Podman runs a string through /bin/sh, which the image does not have
+health_cmd: '["/bin/httpcheck", "http://127.0.0.1:8080/health"]'
