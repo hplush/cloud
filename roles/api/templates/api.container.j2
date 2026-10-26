@@ -5,7 +5,16 @@ Description=Internal web API to deploy websites
 [Container]
 Image={{ api_node_image }}
 AutoUpdate=registry
-Exec=node /app/server.mjs
+# Node.js permission model is a second wall inside the container: the server
+# can read only its sources and the deploy requests, write only the deploy
+# requests, and can’t start processes or workers. It needs the network
+# to answer HTTP and to load GitHub keys.
+Exec=node --permission \
+  --allow-fs-read=/app/ \
+  --allow-fs-read={{ deploy_dir }}/ \
+  --allow-fs-write={{ deploy_dir }}/ \
+  --allow-net \
+  /app/server.mjs
 Environment=PORT={{ api_port }}
 Environment=AUDIENCE={{ api_audience }}
 Environment=CONFIG=/app/services.json
@@ -24,7 +33,7 @@ NoNewPrivileges=true
 # to a subordinate ID, and the container could not write deploy requests.
 # `keep-id` maps the `{{ api_user }}` user of the host to that same user instead.
 UserNS=keep-id:uid=65532,gid=65532
-HealthCmd=node /app/health.mjs
+HealthCmd=node --permission --allow-fs-read=/app/health.mjs --allow-net /app/health.mjs
 HealthInterval=1m
 # `Restart=always` alone only covers a crash, while the server can also hang
 # on a stuck deploy: `kill` stops such a container, and systemd starts it again.
