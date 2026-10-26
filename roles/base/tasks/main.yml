@@ -116,6 +116,54 @@
     mode: '0644'
   notify: Restart journald
 
+# The server has little memory, and a spike in a preview or in ClickHouse
+# could wake up the OOM killer, which would stop a random container.
+# With swap the server only slows down for a moment.
+- name: Create the swap file
+  ansible.builtin.shell: >-
+    fallocate --length {{ swap_size }} /swapfile &&
+    chmod 0600 /swapfile &&
+    mkswap /swapfile
+  args:
+    creates: /swapfile
+
+- name: Allow only root to read the swap file
+  ansible.builtin.file:
+    path: /swapfile
+    owner: root
+    group: root
+    mode: '0600'
+
+- name: Turn the swap on after a reboot
+  ansible.builtin.lineinfile:
+    path: /etc/fstab
+    regexp: '^/swapfile\s'
+    line: /swapfile none swap sw 0 0
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Check whether the swap is on
+  ansible.builtin.command: swapon --show=NAME --noheadings
+  register: base_swap_active
+  changed_when: false
+
+- name: Turn the swap on
+  ansible.builtin.command: swapon /swapfile
+  when: "'/swapfile' not in base_swap_active.stdout_lines"
+  changed_when: true
+
+# Swap is only for the spikes. With the default of 60 the kernel would move
+# memory of idle websites to the disk and make their first request slow.
+- name: Use the swap only under memory pressure
+  ansible.builtin.copy:
+    content: "vm.swappiness = 10\n"
+    dest: /etc/sysctl.d/99-swap.conf
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Apply kernel settings
+
 - name: Enable Canonical Livepatch
   when: ubuntu_pro_token | length > 0
   block:

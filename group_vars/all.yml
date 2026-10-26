@@ -21,6 +21,10 @@ ubuntu_pro_token: !vault |
   3932623061653534630a316262653331663035623564356538356333373635393938363264323733
   32313865643538626638623234646431613361636266313935356564396164303264
 
+# Swap for memory spikes. Changing it later needs a manual `swapoff`
+# and removing `/swapfile`, because Ansible creates the file only once.
+swap_size: 2G
+
 # Internal web API, which GitHub Actions calls after publishing a new image
 api_user: api
 api_domain: api.cloud.hplush.dev

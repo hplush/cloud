@@ -94,8 +94,8 @@ the server and run in an automatically updated Node.js image.
 - `websites/`: one config per website, named after its domain.
 - `previews/`: one config per preview type, named after its parent domain.
 - `site.yml`: playbook calling all roles.
-- `roles/base/`: updates, Livepatch, `fail2ban`, firewall, Podman, gVisor,
-  users, journal limits, and daily image cleanup.
+- `roles/base/`: updates, Livepatch, `fail2ban`, firewall, swap, Podman,
+  gVisor, users, journal limits, and daily image cleanup.
 - `roles/caddy/`: Caddy and domain configs.
 - `roles/api/`: internal web API for GitHub Actions.
 - `roles/web/`: website user, two containers, and deploy script.

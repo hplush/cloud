@@ -19,6 +19,10 @@
   loop: '{{ base_service_users }}'
   changed_when: true
 
+- name: Apply kernel settings
+  ansible.builtin.command: sysctl --load /etc/sysctl.d/99-swap.conf
+  changed_when: true
+
 - name: Restart journald
   ansible.builtin.systemd_service:
     name: systemd-journald.service
