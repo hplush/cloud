@@ -68,6 +68,8 @@
     - caddy
     # Internal web API, which GitHub Actions calls to deploy new images
     - api
+    # Self-hosted Plausible Analytics with its PostgreSQL and ClickHouse
+    - analytics
 
   tasks:
     - name: Configure web services

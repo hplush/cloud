@@ -1,0 +1,42 @@
+# Managed by Ansible
+[Unit]
+Description=PostgreSQL of Plausible Analytics with users and settings
+
+[Container]
+Image={{ analytics_postgres_image }}
+# The tag is a rolling major version, so `podman-auto-update.timer`
+# installs the patch releases of PostgreSQL.
+AutoUpdate=registry
+# Plausible finds the database by this name in the private network
+ContainerName=plausible-db
+Network=plausible.network
+# No `PublishPort`: nothing outside the private network needs the database
+Environment=POSTGRES_USER=plausible
+Environment=POSTGRES_DB=plausible
+# Only the password is in a separate file, which nobody except
+# the {{ analytics_user }} user can read
+EnvironmentFile={{ analytics_state }}/secrets/db.env
+# Before PostgreSQL 18 the image keeps the data in a subdirectory
+Volume=plausible-db.volume:/var/lib/postgresql/data
+NoNewPrivileges=true
+# The image has no `HEALTHCHECK`, and we want systemd to see a database
+# which is running but does not answer.
+HealthCmd=pg_isready --username=plausible --dbname=plausible
+HealthInterval=30s
+HealthOnFailure=kill
+# The unit is ready only after the first successful check, so Plausible
+# does not start its migrations before the database answers
+Notify=healthy
+
+[Service]
+Restart=always
+RestartSec=5
+# Checking and repairing the files after an unclean stop takes time
+TimeoutStartSec=300
+# It keeps only accounts and settings, the events are in ClickHouse
+MemoryMax=256M
+CPUQuota=100%
+TasksMax=256
+
+[Install]
+WantedBy=default.target

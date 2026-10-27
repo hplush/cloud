@@ -1,0 +1,9 @@
+# Managed by Ansible
+[Unit]
+Description=Private network of Plausible Analytics
+
+[Network]
+# Rootless Podman keeps this network inside the network namespace of
+# the {{ analytics_user }} user: no other user and no process on the host
+# can reach the databases in it.
+NetworkName={{ analytics_user }}

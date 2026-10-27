@@ -1,0 +1,216 @@
+---
+- name: Create the directories for Plausible
+  ansible.builtin.file:
+    path: '{{ item.path }}'
+    state: directory
+    owner: '{{ analytics_user }}'
+    group: '{{ analytics_user }}'
+    mode: '{{ item.mode }}'
+  loop:
+    - path: '{{ analytics_quadlets }}'
+      mode: '0755'
+    - path: '{{ analytics_state }}'
+      mode: '0755'
+    - path: '{{ analytics_state }}/secrets'
+      mode: '0700'
+    # ClickHouse runs as its own user inside the container, which is
+    # a subordinate ID on the host, so its configs must be readable by all
+    - path: '{{ analytics_home }}/clickhouse'
+      mode: '0755'
+
+# The secrets never leave the server and nobody has to type them: Ansible
+# generates them on the first run and keeps the files after it.
+# Letters and digits only: Plausible reads the passwords from URLs.
+- name: Create the secrets of Plausible
+  ansible.builtin.copy:
+    content: "{{ lookup('community.general.random_string', length=item.length, special=false) }}\n"
+    dest: '{{ analytics_state }}/secrets/{{ item.name }}'
+    owner: '{{ analytics_user }}'
+    group: '{{ analytics_user }}'
+    mode: '0600'
+    force: false
+  loop:
+    - name: db-password
+      length: 32
+    - name: clickhouse-password
+      length: 32
+    # Plausible signs the sessions with it and needs at least 64 bytes
+    - name: secret-key-base
+      length: 64
+  loop_control:
+    label: '{{ item.name }}'
+  no_log: true
+
+- name: Read the secrets of Plausible
+  ansible.builtin.slurp:
+    src: '{{ analytics_state }}/secrets/{{ item }}'
+  loop:
+    - db-password
+    - clickhouse-password
+    - secret-key-base
+  register: analytics_secret_files
+  no_log: true
+
+# Templates take a secret by its file name, like `analytics_secrets['db-password']`
+- name: Remember the secrets of Plausible
+  ansible.builtin.set_fact:
+    analytics_secrets: >-
+      {{ dict(analytics_secret_files.results | map(attribute='item')
+              | zip(analytics_secret_files.results | map(attribute='content')
+                    | map('b64decode') | map('trim'))) }}
+  no_log: true
+
+- name: Create the private network of Plausible
+  ansible.builtin.template:
+    src: plausible.network.j2
+    dest: '{{ analytics_quadlets }}/plausible.network'
+    owner: '{{ analytics_user }}'
+    group: '{{ analytics_user }}'
+    mode: '0644'
+
+- name: Create the volumes of Plausible
+  ansible.builtin.template:
+    src: volume.j2
+    dest: '{{ analytics_quadlets }}/{{ volume.name }}.volume'
+    owner: '{{ analytics_user }}'
+    group: '{{ analytics_user }}'
+    mode: '0644'
+  loop:
+    - name: plausible-db
+      description: Accounts and settings of Plausible Analytics
+    - name: plausible-events
+      description: Events of Plausible Analytics
+    - name: plausible-data
+      description: IP geolocation database of Plausible Analytics
+  loop_control:
+    loop_var: volume
+    label: '{{ volume.name }}'
+
+# Containers take the secrets from these files, so they stay out of
+# the unit files, which every user of the server can read
+- name: Create the environment file of PostgreSQL
+  ansible.builtin.template:
+    src: db.env.j2
+    dest: '{{ analytics_state }}/secrets/db.env'
+    owner: '{{ analytics_user }}'
+    group: '{{ analytics_user }}'
+    mode: '0600'
+  register: analytics_db_env
+  no_log: true
+
+- name: Create the PostgreSQL container
+  ansible.builtin.template:
+    src: plausible-db.container.j2
+    dest: '{{ analytics_quadlets }}/plausible-db.container'
+    owner: '{{ analytics_user }}'
+    group: '{{ analytics_user }}'
+    mode: '0644'
+  register: analytics_db_unit
+
+- name: Copy the ClickHouse configs
+  ansible.builtin.copy:
+    src: clickhouse/{{ item.file }}
+    dest: '{{ analytics_home }}/clickhouse/{{ item.file }}'
+    owner: '{{ analytics_user }}'
+    group: '{{ analytics_user }}'
+    mode: '0644'
+  loop: '{{ analytics_clickhouse_configs }}'
+  loop_control:
+    label: '{{ item.file }}'
+  register: analytics_events_configs
+
+# The file has only a SHA-256 of a long random password, so it can be
+# readable by all like the other configs: ClickHouse needs to read it
+# as a subordinate ID, which does not own the file.
+- name: Set the ClickHouse password
+  ansible.builtin.template:
+    src: password.xml.j2
+    dest: '{{ analytics_home }}/clickhouse/password.xml'
+    owner: '{{ analytics_user }}'
+    group: '{{ analytics_user }}'
+    mode: '0644'
+  register: analytics_events_password
+
+- name: Create the ClickHouse container
+  ansible.builtin.template:
+    src: plausible-events.container.j2
+    dest: '{{ analytics_quadlets }}/plausible-events.container'
+    owner: '{{ analytics_user }}'
+    group: '{{ analytics_user }}'
+    mode: '0644'
+  register: analytics_events_unit
+
+- name: Create the environment file of Plausible
+  ansible.builtin.template:
+    src: plausible.env.j2
+    dest: '{{ analytics_state }}/secrets/plausible.env'
+    owner: '{{ analytics_user }}'
+    group: '{{ analytics_user }}'
+    mode: '0600'
+  register: analytics_app_env
+  no_log: true
+
+- name: Create the Plausible container
+  ansible.builtin.template:
+    src: plausible.container.j2
+    dest: '{{ analytics_quadlets }}/plausible.container'
+    owner: '{{ analytics_user }}'
+    group: '{{ analytics_user }}'
+    mode: '0644'
+  register: analytics_app_unit
+
+- name: Start Plausible
+  become: true
+  become_user: '{{ analytics_user }}'
+  environment:
+    XDG_RUNTIME_DIR: /run/user/{{ analytics_uid }}
+  block:
+    # Quadlet creates the network and the volumes as dependencies of these
+    # services. A restart of a database restarts Plausible too.
+    - name: Start PostgreSQL of Plausible
+      ansible.builtin.systemd_service:
+        name: plausible-db.service
+        scope: user
+        state: >-
+          {{ 'restarted'
+             if analytics_db_unit.changed or analytics_db_env.changed
+             else 'started' }}
+        daemon_reload: true
+
+    - name: Start ClickHouse of Plausible
+      ansible.builtin.systemd_service:
+        name: plausible-events.service
+        scope: user
+        state: >-
+          {{ 'restarted'
+             if analytics_events_unit.changed or analytics_events_configs.changed
+                or analytics_events_password.changed
+             else 'started' }}
+        daemon_reload: true
+
+    - name: Start Plausible Analytics
+      ansible.builtin.systemd_service:
+        name: plausible.service
+        scope: user
+        state: >-
+          {{ 'restarted'
+             if analytics_app_unit.changed or analytics_app_env.changed
+             else 'started' }}
+        daemon_reload: true
+
+    # All images use rolling tags, so Podman can update them without our help
+    - name: Update the images of Plausible automatically
+      ansible.builtin.systemd_service:
+        name: podman-auto-update.timer
+        scope: user
+        enabled: true
+        state: started
+
+- name: Add the Plausible domain to Caddy
+  ansible.builtin.template:
+    src: plausible.caddy.j2
+    dest: /etc/caddy/sites/{{ analytics_domain }}.caddy
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Reload Caddy

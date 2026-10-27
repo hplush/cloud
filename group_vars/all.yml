@@ -35,6 +35,18 @@ api_node_image: registry.access.redhat.com/hi/nodejs:26
 # GitHub Actions must ask for an OIDC token with exactly this audience
 api_audience: https://api.cloud.hplush.dev
 
+# Self-hosted Plausible Analytics. The domain has no words like `analytics`
+# or `stats`, which some ad-blocker lists match in hostnames.
+analytics_user: plausible
+analytics_domain: lens.hplush.dev
+analytics_port: 8070
+# All three tags are rolling, updated automatically by podman-auto-update.
+# PostgreSQL and ClickHouse follow the Docker Compose file of Plausible
+# (github.com/plausible/community-edition): check it before changing them.
+analytics_image: ghcr.io/plausible/community-edition:v3
+analytics_postgres_image: docker.io/library/postgres:16-alpine
+analytics_clickhouse_image: docker.io/clickhouse/clickhouse-server:24.12-alpine
+
 # GitHub Actions deploy requests are passed to website users through this
 # directory: the deploy API writes a trigger file, the website user’s
 # systemd path unit reacts to it.

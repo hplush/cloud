@@ -1,0 +1,53 @@
+# Managed by Ansible
+[Unit]
+Description=ClickHouse of Plausible Analytics with the events
+
+[Container]
+Image={{ analytics_clickhouse_image }}
+# Plausible chooses the ClickHouse version in its own Docker Compose file,
+# so we keep its minor version and take only the patch releases.
+AutoUpdate=registry
+# Plausible finds the database by this name in the private network
+ContainerName=plausible-events
+# No `PublishPort`: nothing outside the private network needs the database
+Network=plausible.network
+# The entrypoint would write its own config for the `default` user, but
+# the container is read-only. `password.xml` sets the password instead.
+Environment=CLICKHOUSE_SKIP_USER_SETUP=1
+Volume=plausible-events.volume:/var/lib/clickhouse
+{% for config in analytics_clickhouse_configs %}
+Volume={{ analytics_home }}/clickhouse/{{ config.file }}:/etc/clickhouse-server/{{ config.dir }}/{{ config.file }}:ro
+{% endfor %}
+Volume={{ analytics_home }}/clickhouse/password.xml:/etc/clickhouse-server/users.d/password.xml:ro
+# The image starts as root only to change the owner of the directories and
+# switch to its `clickhouse` user. Started as that user right away, its
+# entrypoint skips both steps, so ClickHouse needs no capability at all.
+# Podman gives a new volume to the user of the container.
+User=101:101
+ReadOnly=true
+DropCapability=all
+NoNewPrivileges=true
+# The limit from the Docker Compose file of Plausible. Rootless Podman can’t
+# go above the hard limit of the {{ analytics_user }} user, which is 524288.
+Ulimit=nofile=262144:262144
+# The image has no `HEALTHCHECK`. Podman runs a string through /bin/sh.
+HealthCmd=wget --quiet --tries=1 --output-document=/dev/null http://127.0.0.1:8123/ping
+HealthInterval=30s
+HealthOnFailure=kill
+# The unit is ready only after the first successful check, so Plausible
+# does not start its migrations before the database answers
+Notify=healthy
+
+[Service]
+Restart=always
+RestartSec=5
+# Merging the parts after an unclean stop takes time
+TimeoutStartSec=300
+# `memory.xml` keeps ClickHouse below this limit
+MemoryMax=1G
+CPUQuota=100%
+# ClickHouse has many thread pools even with the low-resource settings
+TasksMax=1024
+
+[Install]
+WantedBy=default.target

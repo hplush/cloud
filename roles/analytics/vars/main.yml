@@ -1,0 +1,22 @@
+---
+analytics_home: /home/{{ analytics_user }}
+analytics_uid: '{{ ansible_facts.getent_passwd[analytics_user][1] }}'
+analytics_state: '{{ analytics_home }}/.local/state'
+analytics_quadlets: '{{ analytics_home }}/.config/containers/systemd'
+# The first four are copied from the Docker Compose setup of Plausible
+# (github.com/plausible/community-edition), the last two are ours.
+# ClickHouse merges the files of a directory in alphabetical order.
+# `password.xml.j2` is a template and goes to `users.d` on its own.
+analytics_clickhouse_configs:
+  - file: logs.xml
+    dir: config.d
+  - file: ipv4-only.xml
+    dir: config.d
+  - file: low-resources.xml
+    dir: config.d
+  - file: default-profile-low-resources-overrides.xml
+    dir: users.d
+  - file: journal.xml
+    dir: config.d
+  - file: memory.xml
+    dir: config.d

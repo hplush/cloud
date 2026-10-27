@@ -1,0 +1,10 @@
+<!-- Managed by Ansible -->
+<!--
+  The container has 1 GB. ClickHouse should refuse a heavy query before
+  the kernel kills the whole server at the cgroup limit. Config files are
+  merged in alphabetical order, so this one overrides `low-resources.xml`.
+-->
+<clickhouse>
+    <max_server_memory_usage>734003200</max_server_memory_usage>
+    <mark_cache_size>134217728</mark_cache_size>
+</clickhouse>

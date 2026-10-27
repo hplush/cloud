@@ -8,6 +8,7 @@ Small hosting for non-critical websites:
 1. [Sitnik personal website](https://sitnik.es/)
 1. [Logux website](https://logux.org/)
 1. [Nano Stores website](https://nanostores.net/)
+1. Self-hosted [Plausible Analytics](https://lens.hplush.dev/)
 
 Stack:
 
@@ -22,6 +23,16 @@ Stack:
 1. Automatic updates for low maintenance.
 2. Accept downtime, but keep it short.
 3. No backups or duplication needed.
+
+## Deploy Changes
+
+Deploy, entering the server user’s password when prompted:
+
+```sh
+ansible-playbook site.yml --user ai --ask-become-pass
+```
+
+The playbook is idempotent and preserves the container serving each domain.
 
 ## Services
 
@@ -52,6 +63,19 @@ such as `:9` updated automatically by Podman tools.
 
 Each database belongs to one website and exposes no host port. It listens
 only on a private Podman network inside that user’s network namespace.
+
+### Analytics
+
+[Plausible Community Edition](https://github.com/plausible/community-edition)
+runs as three containers of the `plausible` user: Plausible itself,
+PostgreSQL for accounts and settings, and ClickHouse for the events.
+The databases expose no host port, listen only on a private Podman network,
+and have generated passwords.
+
+All three images use rolling tags and update automatically. Plausible migrates
+both databases on every start. PostgreSQL and ClickHouse versions follow
+the [Docker Compose file](https://github.com/plausible/community-edition/blob/v3.2.1/compose.yml)
+of Plausible; check it before changing them.
 
 ### Pull Request Previews
 
@@ -98,6 +122,7 @@ the server and run in an automatically updated Node.js image.
   gVisor, users, journal limits, and daily image cleanup.
 - `roles/caddy/`: Caddy and domain configs.
 - `roles/api/`: internal web API for GitHub Actions.
+- `roles/analytics/`: Plausible Analytics with PostgreSQL and ClickHouse.
 - `roles/web/`: website user, two containers, and deploy script.
 
 ## Prepare the Server
@@ -107,7 +132,8 @@ the server and run in an automatically updated Node.js image.
    - Public: `ICMP`, `TCP 80`, `TCP 443`, `UDP 443` (HTTP/3 QUIC)
    - Admin IP only: `TCP 22`
 3. Add `A` and `AAAA` DNS records for `hplush.dev`.
-4. Add `CNAME` records for `cloud` and `api.cloud` pointing to `hplush.dev`.
+4. Add `CNAME` records for `cloud`, `api.cloud`, and `lens` pointing
+   to `hplush.dev`.
 5. Update the system:
 
    ```sh
@@ -151,15 +177,14 @@ the server and run in an automatically updated Node.js image.
    ansible-vault encrypt_string --name ubuntu_pro_token 'YOUR_TOKEN'
    ```
 
-## Deploy Changes
+10. Deploy:
 
-Deploy, entering the server user’s password when prompted:
+    ```sh
+    ansible-playbook site.yml --user ai --ask-become-pass
+    ```
 
-```sh
-ansible-playbook site.yml --user ai --ask-become-pass
-```
-
-The playbook is idempotent and preserves the container serving each domain.
+11. Right after the first deploy, open [lens.hplush.dev](https://lens.hplush.dev/)
+    and register the Plausible admin account.
 
 ## Add a Website
 
@@ -256,6 +281,33 @@ See examples:
 3. [`preview-close.yml`](https://github.com/hplush/slowreader/blob/main/.github/workflows/preview-close.yml)
 4. [`preview-clean.yml`](https://github.com/hplush/slowreader/blob/main/.github/workflows/preview-clean.yml)
 
+## Analytics Accounts
+
+Only the first account, which you register
+[after the first deploy](#deploy-changes), needs no invitation.
+
+Plausible has no email, so an invited person gets no link. Invite them
+on the site’s “People” settings page, then get the link from the database:
+
+```sh
+sudo -u plausible podman exec plausible-db psql -U plausible -c \
+  'select invitation_id from guest_invitations'
+```
+
+Send them `https://lens.hplush.dev/register/invitation/INVITATION_ID`.
+
+Reset a forgotten password from the server:
+
+```sh
+sudo -u plausible podman exec -it plausible /app/bin/plausible remote
+```
+
+```elixir
+Plausible.Repo.get_by!(Plausible.Auth.User, email: "EMAIL")
+|> Plausible.Auth.User.set_password("NEW_PASSWORD")
+|> Plausible.Repo.update!()
+```
+
 ## Maintenance
 
 Automatic updates:
@@ -303,6 +355,8 @@ sudo journalctl _SYSTEMD_USER_UNIT=deploy-hplush.service
 sudo journalctl _SYSTEMD_USER_UNIT=hplush-blue.service
 sudo journalctl _SYSTEMD_USER_UNIT=slowreader-db.service
 sudo journalctl _SYSTEMD_USER_UNIT=preview-42.service
+sudo journalctl _SYSTEMD_USER_UNIT=plausible.service
+sudo journalctl _SYSTEMD_USER_UNIT=plausible-events.service
 ```
 
 Units use app names: `slowreader-app` has
@@ -313,6 +367,15 @@ Open a website’s database:
 ```sh
 sudo -u slowreader podman exec -it slowreader-db psql -U slowreader
 ```
+
+Open the databases of Plausible:
+
+```sh
+sudo -u plausible podman exec -it plausible-db psql -U plausible
+sudo -u plausible podman exec -it plausible-events clickhouse-client --database plausible_events_db --ask-password
+```
+
+Their passwords are in `/home/plausible/.local/state/secrets/`.
 
 Deploy manually by creating a request file:
 

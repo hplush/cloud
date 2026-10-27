@@ -1,0 +1,12 @@
+<!-- Managed by Ansible -->
+<!--
+  `logs.xml` already prints the log to the console, and Podman passes it
+  to the journal with its size limits. Log files would only grow on the disk
+  and need a volume, because the container is read-only.
+-->
+<clickhouse>
+    <logger>
+        <log remove="remove" />
+        <errorlog remove="remove" />
+    </logger>
+</clickhouse>

@@ -1,0 +1,22 @@
+# Managed by Ansible
+{{ analytics_domain }} {
+	encode zstd gzip
+	# Plausible takes the IP of the visitor from the headers to count unique
+	# visitors and find their country. Caddy replaces `X-Forwarded-For` from
+	# the client with the real IP, but Plausible trusts these headers even
+	# more, so we remove them: otherwise anybody could fake their IP.
+	reverse_proxy 127.0.0.1:{{ analytics_port }} {
+		header_up -X-Plausible-IP
+		header_up -CF-Connecting-IP
+		header_up -B-Forwarded-For
+		header_up -Forwarded
+	}
+
+	handle_errors 5xx {
+		root * /etc/caddy/errors
+		rewrite * /down.html
+		file_server {
+			status {err.status_code}
+		}
+	}
+}

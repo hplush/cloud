@@ -1,0 +1,60 @@
+# Managed by Ansible
+[Unit]
+Description=Plausible Analytics on {{ analytics_domain }}
+# Both databases have `Notify=healthy`, so `After` waits until they answer.
+# A restart of a database restarts Plausible as well.
+Requires=plausible-db.service plausible-events.service
+After=plausible-db.service plausible-events.service
+
+[Container]
+Image={{ analytics_image }}
+# The tag is a rolling major version. Plausible migrates both databases
+# on every start, so `podman-auto-update.timer` can install new releases.
+AutoUpdate=registry
+ContainerName=plausible
+# The same start as in the Docker Compose file of Plausible. The `exec` makes
+# Plausible the main process, so it gets the stop signal instead of the shell.
+Exec=sh -c "/entrypoint.sh db createdb && /entrypoint.sh db migrate && exec /entrypoint.sh run"
+Network=plausible.network
+# Only Caddy should be able to reach Plausible
+PublishPort=127.0.0.1:{{ analytics_port }}:8000
+Environment=BASE_URL=https://{{ analytics_domain }}
+# The first account can register without an invitation, the others need one
+Environment=DISABLE_REGISTRATION=invite_only
+# `SECRET_KEY_BASE` and the URLs of the databases with the passwords are
+# in a file, so they stay out of this unit, which every user of the server
+# can read
+EnvironmentFile={{ analytics_state }}/secrets/plausible.env
+# The IP geolocation database and the temporary files of CSV imports.
+# The image runs as its own non-root user, and Podman gives a new volume
+# to this user.
+Volume=plausible-data.volume:/var/lib/plausible
+Environment=TMPDIR=/var/lib/plausible/tmp
+# The image already keeps /app read-only, and Plausible listens on a port
+# above 1024: it needs no capability.
+ReadOnly=true
+DropCapability=all
+NoNewPrivileges=true
+# The image has no `HEALTHCHECK`. Podman runs a string through /bin/sh,
+# and BusyBox in the image has `wget`.
+HealthCmd=wget --quiet --spider http://127.0.0.1:8000/api/system/health/ready
+HealthInterval=30s
+HealthTimeout=5s
+HealthRetries=3
+# Migrations after an update can take a while
+HealthStartPeriod=5m
+# `Restart=always` alone only covers a crash, while Plausible can also hang:
+# `kill` stops such a container, and systemd starts it again.
+HealthOnFailure=kill
+
+[Service]
+Restart=always
+RestartSec=5
+TimeoutStartSec=300
+# The container lives in the cgroup of this unit, so these limits apply to it
+MemoryMax=512M
+CPUQuota=100%
+TasksMax=512
+
+[Install]
+WantedBy=default.target
