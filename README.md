@@ -183,7 +183,8 @@ the server and run in an automatically updated Node.js image.
     ansible-playbook site.yml --user ai --ask-become-pass
     ```
 
-11. Right after the first deploy, open [lens.hplush.dev](https://lens.hplush.dev/)
+11. Right after the first deploy, open
+    [lens.hplush.dev](https://lens.hplush.dev/)
     and register the Plausible admin account.
 
 ## Add a Website
