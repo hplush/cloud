@@ -57,7 +57,7 @@
             "type": "prometheus",
             "uid": "slowreader-metrics"
           },
-          "expr": "max by (status) (serverless_container_status{resource_name=\"app\"}) == 1",
+          "expr": "max by (status) (serverless_container_status{resource_name=~\"(.+-)?app\"}) == 1",
           "legendFormat": "{{status}}",
           "refId": "A"
         }
@@ -117,7 +117,7 @@
             "type": "prometheus",
             "uid": "slowreader-metrics"
           },
-          "expr": "max(serverless_container_cpu_usage_ratio{resource_name=\"app\"})",
+          "expr": "max(serverless_container_cpu_usage_ratio{resource_name=~\"(.+-)?app\"})",
           "legendFormat": "Max",
           "refId": "A"
         },
@@ -126,7 +126,7 @@
             "type": "prometheus",
             "uid": "slowreader-metrics"
           },
-          "expr": "avg(serverless_container_cpu_usage_ratio{resource_name=\"app\"})",
+          "expr": "avg(serverless_container_cpu_usage_ratio{resource_name=~\"(.+-)?app\"})",
           "legendFormat": "Average",
           "refId": "B"
         }
@@ -192,7 +192,7 @@
             "type": "prometheus",
             "uid": "slowreader-metrics"
           },
-          "expr": "max(serverless_container_memory_usage_bytes{resource_name=\"app\"})",
+          "expr": "max(serverless_container_memory_usage_bytes{resource_name=~\"(.+-)?app\"})",
           "legendFormat": "Max",
           "refId": "A"
         },
@@ -201,7 +201,7 @@
             "type": "prometheus",
             "uid": "slowreader-metrics"
           },
-          "expr": "avg(serverless_container_memory_usage_bytes{resource_name=\"app\"})",
+          "expr": "avg(serverless_container_memory_usage_bytes{resource_name=~\"(.+-)?app\"})",
           "legendFormat": "Average",
           "refId": "B"
         },
@@ -210,7 +210,7 @@
             "type": "prometheus",
             "uid": "slowreader-metrics"
           },
-          "expr": "max(serverless_container_memory_limit_bytes{resource_name=\"app\"})",
+          "expr": "max(serverless_container_memory_limit_bytes{resource_name=~\"(.+-)?app\"})",
           "legendFormat": "Limit",
           "refId": "C"
         }
@@ -289,7 +289,7 @@
             "type": "prometheus",
             "uid": "slowreader-metrics"
           },
-          "expr": "count(serverless_container_memory_usage_bytes{resource_name=\"app\"}) or vector(0)",
+          "expr": "count(serverless_container_memory_usage_bytes{resource_name=~\"(.+-)?app\"}) or vector(0)",
           "legendFormat": "Instances",
           "refId": "A"
         }
@@ -339,7 +339,7 @@
             "type": "prometheus",
             "uid": "slowreader-metrics"
           },
-          "expr": "count(count_over_time(serverless_container_memory_usage_bytes{resource_name=\"app\"}[$__range])) or vector(0)",
+          "expr": "count(count_over_time(serverless_container_memory_usage_bytes{resource_name=~\"(.+-)?app\"}[$__range])) or vector(0)",
           "legendFormat": "Started",
           "refId": "A",
           "instant": true
@@ -390,7 +390,7 @@
             "type": "prometheus",
             "uid": "slowreader-metrics"
           },
-          "expr": "sum(serverless_containers_requests_per_second{resource_name=\"app\"}) or vector(0)",
+          "expr": "sum(serverless_container_requests_per_second{resource_name=~\"(.+-)?app\"}) or vector(0)",
           "legendFormat": "Requests",
           "refId": "A"
         }
@@ -439,7 +439,7 @@
             "type": "prometheus",
             "uid": "slowreader-metrics"
           },
-          "expr": "sum(sum_over_time(serverless_containers_requests_per_second{resource_name=\"app\"}[$__range])) * 60 or vector(0)",
+          "expr": "sum(sum_over_time(serverless_container_requests_per_second{resource_name=~\"(.+-)?app\"}[$__range])) * 60 or vector(0)",
           "legendFormat": "Requests",
           "refId": "A",
           "instant": true
@@ -503,7 +503,7 @@
             "type": "prometheus",
             "uid": "slowreader-metrics"
           },
-          "expr": "max by (status) (serverless_container_status{resource_name=\"proxy\"}) == 1",
+          "expr": "max by (status) (serverless_container_status{resource_name=~\"(.+-)?proxy\"}) == 1",
           "legendFormat": "{{status}}",
           "refId": "A"
         }
@@ -563,7 +563,7 @@
             "type": "prometheus",
             "uid": "slowreader-metrics"
           },
-          "expr": "max(serverless_container_cpu_usage_ratio{resource_name=\"proxy\"})",
+          "expr": "max(serverless_container_cpu_usage_ratio{resource_name=~\"(.+-)?proxy\"})",
           "legendFormat": "Max",
           "refId": "A"
         },
@@ -572,7 +572,7 @@
             "type": "prometheus",
             "uid": "slowreader-metrics"
           },
-          "expr": "avg(serverless_container_cpu_usage_ratio{resource_name=\"proxy\"})",
+          "expr": "avg(serverless_container_cpu_usage_ratio{resource_name=~\"(.+-)?proxy\"})",
           "legendFormat": "Average",
           "refId": "B"
         }
@@ -638,7 +638,7 @@
             "type": "prometheus",
             "uid": "slowreader-metrics"
           },
-          "expr": "max(serverless_container_memory_usage_bytes{resource_name=\"proxy\"})",
+          "expr": "max(serverless_container_memory_usage_bytes{resource_name=~\"(.+-)?proxy\"})",
           "legendFormat": "Max",
           "refId": "A"
         },
@@ -647,7 +647,7 @@
             "type": "prometheus",
             "uid": "slowreader-metrics"
           },
-          "expr": "avg(serverless_container_memory_usage_bytes{resource_name=\"proxy\"})",
+          "expr": "avg(serverless_container_memory_usage_bytes{resource_name=~\"(.+-)?proxy\"})",
           "legendFormat": "Average",
           "refId": "B"
         },
@@ -656,7 +656,7 @@
             "type": "prometheus",
             "uid": "slowreader-metrics"
           },
-          "expr": "max(serverless_container_memory_limit_bytes{resource_name=\"proxy\"})",
+          "expr": "max(serverless_container_memory_limit_bytes{resource_name=~\"(.+-)?proxy\"})",
           "legendFormat": "Limit",
           "refId": "C"
         }
@@ -735,7 +735,7 @@
             "type": "prometheus",
             "uid": "slowreader-metrics"
           },
-          "expr": "count(serverless_container_memory_usage_bytes{resource_name=\"proxy\"}) or vector(0)",
+          "expr": "count(serverless_container_memory_usage_bytes{resource_name=~\"(.+-)?proxy\"}) or vector(0)",
           "legendFormat": "Instances",
           "refId": "A"
         }
@@ -785,7 +785,7 @@
             "type": "prometheus",
             "uid": "slowreader-metrics"
           },
-          "expr": "count(count_over_time(serverless_container_memory_usage_bytes{resource_name=\"proxy\"}[$__range])) or vector(0)",
+          "expr": "count(count_over_time(serverless_container_memory_usage_bytes{resource_name=~\"(.+-)?proxy\"}[$__range])) or vector(0)",
           "legendFormat": "Started",
           "refId": "A",
           "instant": true
@@ -836,7 +836,7 @@
             "type": "prometheus",
             "uid": "slowreader-metrics"
           },
-          "expr": "sum(serverless_containers_requests_per_second{resource_name=\"proxy\"}) or vector(0)",
+          "expr": "sum(serverless_container_requests_per_second{resource_name=~\"(.+-)?proxy\"}) or vector(0)",
           "legendFormat": "Requests",
           "refId": "A"
         }
@@ -885,7 +885,7 @@
             "type": "prometheus",
             "uid": "slowreader-metrics"
           },
-          "expr": "sum(sum_over_time(serverless_containers_requests_per_second{resource_name=\"proxy\"}[$__range])) * 60 or vector(0)",
+          "expr": "sum(sum_over_time(serverless_container_requests_per_second{resource_name=~\"(.+-)?proxy\"}[$__range])) * 60 or vector(0)",
           "legendFormat": "Requests",
           "refId": "A",
           "instant": true
