@@ -20,7 +20,16 @@
     "list": []
   },
   "templating": {
-    "list": []
+    "list": [
+      {
+        "type": "constant",
+        "name": "sample",
+        "label": "Sample interval",
+        "description": "Seconds between samples in Cockpit. Scaleway saves container metrics every 5 seconds: 720 samples per hour.",
+        "hide": 2,
+        "query": "5"
+      }
+    ]
   },
   "panels": [
     {
@@ -321,8 +330,8 @@
     {
       "id": 6,
       "type": "stat",
-      "title": "Started instances",
-      "description": "Instances with metrics during the time range. Every restart, deploy, and scaling starts a new instance.",
+      "title": "Instance-hours",
+      "description": "Total running time of all instances during the time range. Scaleway bills for this time, multiplied by the CPU and memory of the instance.",
       "datasource": {
         "type": "prometheus",
         "uid": "slowreader-metrics"
@@ -339,8 +348,8 @@
             "type": "prometheus",
             "uid": "slowreader-metrics"
           },
-          "expr": "count(count_over_time(serverless_container_memory_usage_bytes{resource_name=~\"(.+-)?app\"}[$__range])) or vector(0)",
-          "legendFormat": "Started",
+          "expr": "sum(count_over_time(serverless_container_memory_usage_bytes{resource_name=~\"(.+-)?app\"}[$__range])) * $sample / 3600 or vector(0)",
+          "legendFormat": "Instance-hours",
           "refId": "A",
           "instant": true
         }
@@ -348,7 +357,7 @@
       "fieldConfig": {
         "defaults": {
           "unit": "short",
-          "decimals": 0,
+          "decimals": 1,
           "color": {
             "mode": "fixed",
             "fixedColor": "text"
@@ -422,7 +431,7 @@
       "id": 8,
       "type": "stat",
       "title": "Requests",
-      "description": "Requests during the time range. Scaleway saves requests per second every minute, so every sample is 60 seconds of requests.",
+      "description": "Requests during the time range. Every sample is requests per second over $sample seconds.",
       "datasource": {
         "type": "prometheus",
         "uid": "slowreader-metrics"
@@ -439,7 +448,7 @@
             "type": "prometheus",
             "uid": "slowreader-metrics"
           },
-          "expr": "sum(sum_over_time(serverless_container_requests_per_second{resource_name=~\"(.+-)?app\"}[$__range])) * 60 or vector(0)",
+          "expr": "sum(sum_over_time(serverless_container_requests_per_second{resource_name=~\"(.+-)?app\"}[$__range])) * $sample or vector(0)",
           "legendFormat": "Requests",
           "refId": "A",
           "instant": true
@@ -767,8 +776,8 @@
     {
       "id": 14,
       "type": "stat",
-      "title": "Started instances",
-      "description": "Instances with metrics during the time range. Every restart, deploy, and scaling starts a new instance.",
+      "title": "Instance-hours",
+      "description": "Total running time of all instances during the time range. Scaleway bills for this time, multiplied by the CPU and memory of the instance.",
       "datasource": {
         "type": "prometheus",
         "uid": "slowreader-metrics"
@@ -785,8 +794,8 @@
             "type": "prometheus",
             "uid": "slowreader-metrics"
           },
-          "expr": "count(count_over_time(serverless_container_memory_usage_bytes{resource_name=~\"(.+-)?proxy\"}[$__range])) or vector(0)",
-          "legendFormat": "Started",
+          "expr": "sum(count_over_time(serverless_container_memory_usage_bytes{resource_name=~\"(.+-)?proxy\"}[$__range])) * $sample / 3600 or vector(0)",
+          "legendFormat": "Instance-hours",
           "refId": "A",
           "instant": true
         }
@@ -794,7 +803,7 @@
       "fieldConfig": {
         "defaults": {
           "unit": "short",
-          "decimals": 0,
+          "decimals": 1,
           "color": {
             "mode": "fixed",
             "fixedColor": "text"
@@ -868,7 +877,7 @@
       "id": 16,
       "type": "stat",
       "title": "Requests",
-      "description": "Requests during the time range. Scaleway saves requests per second every minute, so every sample is 60 seconds of requests.",
+      "description": "Requests during the time range. Every sample is requests per second over $sample seconds.",
       "datasource": {
         "type": "prometheus",
         "uid": "slowreader-metrics"
@@ -885,7 +894,7 @@
             "type": "prometheus",
             "uid": "slowreader-metrics"
           },
-          "expr": "sum(sum_over_time(serverless_container_requests_per_second{resource_name=~\"(.+-)?proxy\"}[$__range])) * 60 or vector(0)",
+          "expr": "sum(sum_over_time(serverless_container_requests_per_second{resource_name=~\"(.+-)?proxy\"}[$__range])) * $sample or vector(0)",
           "legendFormat": "Requests",
           "refId": "A",
           "instant": true

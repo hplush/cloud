@@ -13,7 +13,9 @@ datasources:
     editable: false
     jsonData:
       prometheusType: Prometheus
-      # Scaleway collects the metrics of its products every minute
+      # Scaleway saves container metrics every 5 seconds, but graphs do not
+      # need more than a point per minute. Totals in dashboards do not
+      # depend on it: they use the `$sample` constant.
       timeInterval: 1m
       httpHeaderName1: X-Token
     secureJsonData:
