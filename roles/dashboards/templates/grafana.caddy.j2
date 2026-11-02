@@ -1,0 +1,13 @@
+# Managed by Ansible
+{{ dashboards_domain }} {
+	encode zstd gzip
+	reverse_proxy 127.0.0.1:{{ dashboards_port }}
+
+	handle_errors 5xx {
+		root * /etc/caddy/errors
+		rewrite * /down.html
+		file_server {
+			status {err.status_code}
+		}
+	}
+}

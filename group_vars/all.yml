@@ -47,6 +47,20 @@ analytics_image: ghcr.io/plausible/community-edition:v3
 analytics_postgres_image: docker.io/library/postgres:16-alpine
 analytics_clickhouse_image: docker.io/clickhouse/clickhouse-server:24.12-alpine
 
+# Grafana with charts from the custom API of Slow Reader production
+dashboards_user: grafana
+dashboards_domain: dashboard.hplush.dev
+dashboards_port: 8090
+dashboards_image: docker.io/grafana/grafana:latest
+dashboards_admin: ai
+# App stats from the custom API of Slow Reader production. The API accepts
+# requests only with the token and only from the IPv4 and IPv6 addresses
+# of this server.
+dashboards_analytics_url: https://slowreader.app/analytics
+dashboards_analytics_token: ''
+dashboards_cockpit_url: 'https://7caebd32-a368-4bb3-9a74-01b91dc2bab6.metrics.cockpit.fr-par.scw.cloud'
+dashboards_cockpit_token: ''
+
 # GitHub Actions deploy requests are passed to website users through this
 # directory: the deploy API writes a trigger file, the website user’s
 # systemd path unit reacts to it.

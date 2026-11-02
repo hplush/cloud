@@ -1,0 +1,919 @@
+{
+  "uid": "slowreader-scaleway",
+  "title": "Slow Reader: Scaleway",
+  "description": "Production containers of Slow Reader from Scaleway Cockpit",
+  "tags": [
+    "slowreader",
+    "scaleway"
+  ],
+  "timezone": "browser",
+  "refresh": "1m",
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
+  "schemaVersion": 41,
+  "editable": true,
+  "graphTooltip": 1,
+  "links": [],
+  "annotations": {
+    "list": []
+  },
+  "templating": {
+    "list": []
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "row",
+      "title": "App",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 2,
+      "type": "state-timeline",
+      "title": "Status",
+      "description": "Web client and sync server, always one instance. Scaleway does not restart a container in error: it only stops sending requests to it.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "slowreader-metrics"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 1,
+        "w": 24,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "slowreader-metrics"
+          },
+          "expr": "max by (status) (serverless_container_status{resource_name=\"app\"}) == 1",
+          "legendFormat": "{{status}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "green"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "error"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "red"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showValue": "never",
+        "mergeValues": true,
+        "rowHeight": 0.9,
+        "legend": {
+          "showLegend": false
+        }
+      }
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "CPU",
+      "description": "Share of the CPU limit. Scaleway restarts the container above the limit.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "slowreader-metrics"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 5,
+        "w": 8,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "slowreader-metrics"
+          },
+          "expr": "max(serverless_container_cpu_usage_ratio{resource_name=\"app\"})",
+          "legendFormat": "Max",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "slowreader-metrics"
+          },
+          "expr": "avg(serverless_container_cpu_usage_ratio{resource_name=\"app\"})",
+          "legendFormat": "Average",
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "custom": {
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false,
+            "thresholdsStyle": {
+              "mode": "line"
+            }
+          },
+          "max": 100,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 90
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      }
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Memory",
+      "description": "Scaleway restarts the container when memory reaches the limit (out of memory).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "slowreader-metrics"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 5,
+        "w": 8,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "slowreader-metrics"
+          },
+          "expr": "max(serverless_container_memory_usage_bytes{resource_name=\"app\"})",
+          "legendFormat": "Max",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "slowreader-metrics"
+          },
+          "expr": "avg(serverless_container_memory_usage_bytes{resource_name=\"app\"})",
+          "legendFormat": "Average",
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "slowreader-metrics"
+          },
+          "expr": "max(serverless_container_memory_limit_bytes{resource_name=\"app\"})",
+          "legendFormat": "Limit",
+          "refId": "C"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "min": 0,
+          "custom": {
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Limit"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "red"
+                }
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    10,
+                    10
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      }
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Instances",
+      "description": "Instances with metrics at this moment.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "slowreader-metrics"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 5,
+        "w": 4,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "slowreader-metrics"
+          },
+          "expr": "count(serverless_container_memory_usage_bytes{resource_name=\"app\"}) or vector(0)",
+          "legendFormat": "Instances",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "custom": {
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false
+          },
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      }
+    },
+    {
+      "id": 6,
+      "type": "stat",
+      "title": "Started instances",
+      "description": "Instances with metrics during the time range. Every restart, deploy, and scaling starts a new instance.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "slowreader-metrics"
+      },
+      "gridPos": {
+        "x": 20,
+        "y": 5,
+        "w": 4,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "slowreader-metrics"
+          },
+          "expr": "count(count_over_time(serverless_container_memory_usage_bytes{resource_name=\"app\"}[$__range])) or vector(0)",
+          "legendFormat": "Started",
+          "refId": "A",
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "none",
+        "graphMode": "none",
+        "textMode": "value"
+      }
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Requests",
+      "description": "Requests per second to all instances.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "slowreader-metrics"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 13,
+        "w": 20,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "slowreader-metrics"
+          },
+          "expr": "sum(serverless_containers_requests_per_second{resource_name=\"app\"}) or vector(0)",
+          "legendFormat": "Requests",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "min": 0,
+          "custom": {
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      }
+    },
+    {
+      "id": 8,
+      "type": "stat",
+      "title": "Requests",
+      "description": "Requests during the time range. Scaleway saves requests per second every minute, so every sample is 60 seconds of requests.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "slowreader-metrics"
+      },
+      "gridPos": {
+        "x": 20,
+        "y": 13,
+        "w": 4,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "slowreader-metrics"
+          },
+          "expr": "sum(sum_over_time(serverless_containers_requests_per_second{resource_name=\"app\"}[$__range])) * 60 or vector(0)",
+          "legendFormat": "Requests",
+          "refId": "A",
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "none",
+        "graphMode": "none",
+        "textMode": "value"
+      }
+    },
+    {
+      "id": 9,
+      "type": "row",
+      "title": "Proxy",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 21,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 10,
+      "type": "state-timeline",
+      "title": "Status",
+      "description": "CORS proxy for RSS feeds, from 0 to 2 instances. Scaleway does not restart a container in error: it only stops sending requests to it.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "slowreader-metrics"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 22,
+        "w": 24,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "slowreader-metrics"
+          },
+          "expr": "max by (status) (serverless_container_status{resource_name=\"proxy\"}) == 1",
+          "legendFormat": "{{status}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "green"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "error"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "red"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showValue": "never",
+        "mergeValues": true,
+        "rowHeight": 0.9,
+        "legend": {
+          "showLegend": false
+        }
+      }
+    },
+    {
+      "id": 11,
+      "type": "timeseries",
+      "title": "CPU",
+      "description": "Share of the CPU limit. Scaleway restarts the container above the limit.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "slowreader-metrics"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 26,
+        "w": 8,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "slowreader-metrics"
+          },
+          "expr": "max(serverless_container_cpu_usage_ratio{resource_name=\"proxy\"})",
+          "legendFormat": "Max",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "slowreader-metrics"
+          },
+          "expr": "avg(serverless_container_cpu_usage_ratio{resource_name=\"proxy\"})",
+          "legendFormat": "Average",
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "custom": {
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false,
+            "thresholdsStyle": {
+              "mode": "line"
+            }
+          },
+          "max": 100,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 90
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      }
+    },
+    {
+      "id": 12,
+      "type": "timeseries",
+      "title": "Memory",
+      "description": "Scaleway restarts the container when memory reaches the limit (out of memory).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "slowreader-metrics"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 26,
+        "w": 8,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "slowreader-metrics"
+          },
+          "expr": "max(serverless_container_memory_usage_bytes{resource_name=\"proxy\"})",
+          "legendFormat": "Max",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "slowreader-metrics"
+          },
+          "expr": "avg(serverless_container_memory_usage_bytes{resource_name=\"proxy\"})",
+          "legendFormat": "Average",
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "slowreader-metrics"
+          },
+          "expr": "max(serverless_container_memory_limit_bytes{resource_name=\"proxy\"})",
+          "legendFormat": "Limit",
+          "refId": "C"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "min": 0,
+          "custom": {
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Limit"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "red"
+                }
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    10,
+                    10
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      }
+    },
+    {
+      "id": 13,
+      "type": "timeseries",
+      "title": "Instances",
+      "description": "Instances with metrics at this moment.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "slowreader-metrics"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 26,
+        "w": 4,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "slowreader-metrics"
+          },
+          "expr": "count(serverless_container_memory_usage_bytes{resource_name=\"proxy\"}) or vector(0)",
+          "legendFormat": "Instances",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "custom": {
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false
+          },
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      }
+    },
+    {
+      "id": 14,
+      "type": "stat",
+      "title": "Started instances",
+      "description": "Instances with metrics during the time range. Every restart, deploy, and scaling starts a new instance.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "slowreader-metrics"
+      },
+      "gridPos": {
+        "x": 20,
+        "y": 26,
+        "w": 4,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "slowreader-metrics"
+          },
+          "expr": "count(count_over_time(serverless_container_memory_usage_bytes{resource_name=\"proxy\"}[$__range])) or vector(0)",
+          "legendFormat": "Started",
+          "refId": "A",
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "none",
+        "graphMode": "none",
+        "textMode": "value"
+      }
+    },
+    {
+      "id": 15,
+      "type": "timeseries",
+      "title": "Requests",
+      "description": "Requests per second to all instances.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "slowreader-metrics"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 34,
+        "w": 20,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "slowreader-metrics"
+          },
+          "expr": "sum(serverless_containers_requests_per_second{resource_name=\"proxy\"}) or vector(0)",
+          "legendFormat": "Requests",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "min": 0,
+          "custom": {
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      }
+    },
+    {
+      "id": 16,
+      "type": "stat",
+      "title": "Requests",
+      "description": "Requests during the time range. Scaleway saves requests per second every minute, so every sample is 60 seconds of requests.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "slowreader-metrics"
+      },
+      "gridPos": {
+        "x": 20,
+        "y": 34,
+        "w": 4,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "slowreader-metrics"
+          },
+          "expr": "sum(sum_over_time(serverless_containers_requests_per_second{resource_name=\"proxy\"}[$__range])) * 60 or vector(0)",
+          "legendFormat": "Requests",
+          "refId": "A",
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "none",
+        "graphMode": "none",
+        "textMode": "value"
+      }
+    }
+  ]
+}

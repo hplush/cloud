@@ -3,12 +3,13 @@
 Small hosting for non-critical websites:
 
 1. [h+h lab landing](https://hplush.dev/)
-1. Development preview of [Slow Reader](https://github.com/hplush/slowreader)
-1. [Browserslist REPL](https://browsersl.ist/)
-1. [Sitnik personal website](https://sitnik.es/)
-1. [Logux website](https://logux.org/)
-1. [Nano Stores website](https://nanostores.net/)
-1. Self-hosted [Plausible Analytics](https://lens.hplush.dev/)
+2. Development preview of [Slow Reader](https://github.com/hplush/slowreader)
+3. [Browserslist REPL](https://browsersl.ist/)
+4. [Sitnik personal website](https://sitnik.es/)
+5. [Logux website](https://logux.org/)
+6. [Nano Stores website](https://nanostores.net/)
+7. Self-hosted [Plausible Analytics](https://lens.hplush.dev/)
+8. [Grafana](https://dashboard.hplush.dev/) with Slow Reader production charts
 
 Stack:
 
@@ -77,6 +78,20 @@ both databases on every start. PostgreSQL and ClickHouse versions follow
 the [Docker Compose file](https://github.com/plausible/community-edition/blob/v3.2.1/compose.yml)
 of Plausible; check it before changing them.
 
+### Dashboards
+
+Grafana runs as one container of the `grafana` user, with SQLite
+in a volume. Its image uses the `latest` tag and updates automatically.
+
+It loads JSON from the custom API of Slow Reader production through
+the [Infinity](https://grafana.com/grafana/plugins/yesoreyeram-infinity-datasource/)
+plugin. The API accepts only a Bearer token and only the IPv4 and IPv6
+addresses of this server.
+
+CPU, memory, status, and instances of the production containers come
+from [Scaleway Cockpit](https://www.scaleway.com/en/docs/cockpit/)
+with the built-in Prometheus data source.
+
 ### Pull Request Previews
 
 A pull request can run a single image on its own subdomain,
@@ -123,6 +138,7 @@ the server and run in an automatically updated Node.js image.
 - `roles/caddy/`: Caddy and domain configs.
 - `roles/api/`: internal web API for GitHub Actions.
 - `roles/analytics/`: Plausible Analytics with PostgreSQL and ClickHouse.
+- `roles/dashboards/`: Grafana and its dashboards.
 - `roles/web/`: website user, two containers, and deploy script.
 
 ## Prepare the Server
@@ -132,7 +148,7 @@ the server and run in an automatically updated Node.js image.
    - Public: `ICMP`, `TCP 80`, `TCP 443`, `UDP 443` (HTTP/3 QUIC)
    - Admin IP only: `TCP 22`
 3. Add `A` and `AAAA` DNS records for `hplush.dev`.
-4. Add `CNAME` records for `cloud`, `api.cloud`, and `lens` pointing
+4. Add `CNAME` records for `cloud`, `api.cloud`, `lens`, and `dashboard` pointing
    to `hplush.dev`.
 5. Update the system:
 
@@ -186,6 +202,13 @@ the server and run in an automatically updated Node.js image.
 11. Right after the first deploy, open
     [lens.hplush.dev](https://lens.hplush.dev/)
     and register the Plausible admin account.
+
+12. Open [dashboard.hplush.dev](https://dashboard.hplush.dev/) and log in
+    as `ai` with the password from the server:
+
+    ```sh
+    sudo cat /home/grafana/.local/state/secrets/admin-password
+    ```
 
 ## Add a Website
 
@@ -358,6 +381,7 @@ sudo journalctl _SYSTEMD_USER_UNIT=slowreader-db.service
 sudo journalctl _SYSTEMD_USER_UNIT=preview-42.service
 sudo journalctl _SYSTEMD_USER_UNIT=plausible.service
 sudo journalctl _SYSTEMD_USER_UNIT=plausible-events.service
+sudo journalctl _SYSTEMD_USER_UNIT=grafana.service
 ```
 
 Units use app names: `slowreader-app` has
@@ -377,6 +401,12 @@ sudo -u plausible podman exec -it plausible-events clickhouse-client --database 
 ```
 
 Their passwords are in `/home/plausible/.local/state/secrets/`.
+
+Reset the Grafana password:
+
+```sh
+sudo -u grafana podman exec -it grafana grafana cli admin reset-admin-password NEW_PASSWORD
+```
 
 Deploy manually by creating a request file:
 

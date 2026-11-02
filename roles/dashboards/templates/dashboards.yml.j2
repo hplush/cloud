@@ -1,0 +1,13 @@
+# Managed by Ansible
+apiVersion: 1
+
+providers:
+  # JSON files from `roles/dashboards/files/dashboards/`
+  - name: repository
+    type: file
+    # Changes go through this repository: the UI can only save a copy
+    allowUiUpdates: false
+    # A dashboard removed from the repository disappears from Grafana too
+    disableDeletion: false
+    options:
+      path: /etc/grafana/provisioning/dashboards

@@ -1,0 +1,21 @@
+# Managed by Ansible
+apiVersion: 1
+
+datasources:
+  - name: Slow Reader
+    # Dashboards refer to the data source by it
+    uid: slowreader-analytics
+    type: yesoreyeram-infinity-datasource
+    url: {{ dashboards_analytics_url }}
+    # Changes go through this repository and not through the UI
+    editable: false
+    jsonData:
+      auth_method: bearerToken
+      # Panels can ask any URL. Without this list a panel could send
+      # the token to another server.
+      allowedHosts:
+        - {{ dashboards_analytics_url }}
+    secureJsonData:
+      # Grafana replaces it with the variable from the environment file,
+      # so the token is not in this file, which every user can read
+      bearerToken: ${SLOWREADER_ANALYTICS_TOKEN}

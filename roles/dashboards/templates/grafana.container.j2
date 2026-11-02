@@ -1,0 +1,70 @@
+# Managed by Ansible
+[Unit]
+Description=Grafana on {{ dashboards_domain }}
+
+[Container]
+Image={{ dashboards_image }}
+# Grafana migrates its database on every start, so `podman-auto-update.timer`
+# can install new releases. With `Notify=healthy` the update waits for
+# the health check and rolls back the image if Grafana does not answer.
+AutoUpdate=registry
+ContainerName=grafana
+# Only Caddy should be able to reach Grafana
+PublishPort=127.0.0.1:{{ dashboards_port }}:3000
+Environment=GF_SERVER_ROOT_URL=https://{{ dashboards_domain }}
+Environment=GF_SECURITY_ADMIN_USER={{ dashboards_admin }}
+Environment=GF_SECURITY_COOKIE_SECURE=true
+# Gravatar would send the hashes of our emails to a third party
+Environment=GF_SECURITY_DISABLE_GRAVATAR=true
+# New accounts appear only by an invite from the admin
+Environment=GF_USERS_ALLOW_SIGN_UP=false
+Environment=GF_AUTH_ANONYMOUS_ENABLED=false
+# Grafana should not call home: podman-auto-update installs new releases
+Environment=GF_ANALYTICS_REPORTING_ENABLED=false
+Environment=GF_ANALYTICS_CHECK_FOR_UPDATES=false
+Environment=GF_ANALYTICS_CHECK_FOR_PLUGIN_UPDATES=false
+Environment=GF_NEWS_NEWS_FEED_ENABLED=false
+# The root is read-only, so the logs go only to the journal
+Environment=GF_LOG_MODE=console
+# Infinity plugin loads JSON from any HTTP API. Grafana installs it
+# into the volume on start.
+Environment=GF_PLUGINS_PREINSTALL_SYNC=yesoreyeram-infinity-datasource
+# The admin password, the encryption key, and the token of the API
+# are in a file, so they stay out of this unit, which every user
+# of the server can read
+EnvironmentFile={{ dashboards_state }}/secrets/grafana.env
+# SQLite database, plugins, and sessions. The image runs as its own
+# non-root user, and Podman gives a new volume to this user.
+Volume=grafana.volume:/var/lib/grafana
+# Data sources and dashboards come from this repository: we have no backups,
+# so everything only in the database can be lost
+Volume={{ dashboards_provisioning }}:/etc/grafana/provisioning:ro
+ReadOnly=true
+Tmpfs=/tmp
+# Grafana listens on a port above 1024: it needs no capability
+DropCapability=all
+NoNewPrivileges=true
+# The image has no `HEALTHCHECK`. Podman runs a string through /bin/sh,
+# and BusyBox in the image has `wget`.
+HealthCmd=wget --quiet --spider http://127.0.0.1:3000/api/health
+HealthInterval=30s
+HealthTimeout=5s
+HealthRetries=3
+# Migrations and the plugin download after an update can take a while
+HealthStartPeriod=5m
+# `Restart=always` alone only covers a crash, while Grafana can also hang:
+# `kill` stops such a container, and systemd starts it again.
+HealthOnFailure=kill
+Notify=healthy
+
+[Service]
+Restart=always
+RestartSec=5
+TimeoutStartSec=300
+# The container lives in the cgroup of this unit, so these limits apply to it
+MemoryMax=512M
+CPUQuota=100%
+TasksMax=256
+
+[Install]
+WantedBy=default.target

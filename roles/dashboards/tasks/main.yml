@@ -1,0 +1,169 @@
+---
+- name: Create the directories for Grafana
+  ansible.builtin.file:
+    path: '{{ item.path }}'
+    state: directory
+    owner: '{{ dashboards_user }}'
+    group: '{{ dashboards_user }}'
+    mode: '{{ item.mode }}'
+  loop:
+    - path: '{{ dashboards_quadlets }}'
+      mode: '0755'
+    - path: '{{ dashboards_state }}'
+      mode: '0755'
+    - path: '{{ dashboards_state }}/secrets'
+      mode: '0700'
+    - path: '{{ dashboards_provisioning }}'
+      mode: '0755'
+    - path: '{{ dashboards_provisioning }}/datasources'
+      mode: '0755'
+    - path: '{{ dashboards_provisioning }}/dashboards'
+      mode: '0755'
+
+# The secrets never leave the server: Ansible generates them on the first
+# run and keeps the files after it
+- name: Create the secrets of Grafana
+  ansible.builtin.copy:
+    content: "{{ lookup('community.general.random_string', length=item.length, special=false) }}\n"
+    dest: '{{ dashboards_state }}/secrets/{{ item.name }}'
+    owner: '{{ dashboards_user }}'
+    group: '{{ dashboards_user }}'
+    mode: '0600'
+    force: false
+  loop:
+    # Grafana uses it only to create the account on the first start
+    - name: admin-password
+      length: 32
+    # Grafana encrypts the tokens of data sources in its database with it.
+    # Without it Grafana uses the same public default key everywhere.
+    - name: secret-key
+      length: 32
+  loop_control:
+    label: '{{ item.name }}'
+  no_log: true
+
+- name: Read the secrets of Grafana
+  ansible.builtin.slurp:
+    src: '{{ dashboards_state }}/secrets/{{ item }}'
+  loop:
+    - admin-password
+    - secret-key
+  register: dashboards_secret_files
+  no_log: true
+
+# Templates take a secret by its file name, like `dashboards_secrets['secret-key']`
+- name: Remember the secrets of Grafana
+  ansible.builtin.set_fact:
+    dashboards_secrets: >-
+      {{ dict(dashboards_secret_files.results | map(attribute='item')
+              | zip(dashboards_secret_files.results | map(attribute='content')
+                    | map('b64decode') | map('trim'))) }}
+  no_log: true
+
+- name: Create the volume of Grafana
+  ansible.builtin.template:
+    src: grafana.volume.j2
+    dest: '{{ dashboards_quadlets }}/grafana.volume'
+    owner: '{{ dashboards_user }}'
+    group: '{{ dashboards_user }}'
+    mode: '0644'
+
+# The container takes the secrets from this file, so they stay out of
+# the unit file, which every user of the server can read
+- name: Create the environment file of Grafana
+  ansible.builtin.template:
+    src: grafana.env.j2
+    dest: '{{ dashboards_state }}/secrets/grafana.env'
+    owner: '{{ dashboards_user }}'
+    group: '{{ dashboards_user }}'
+    mode: '0600'
+  register: dashboards_env
+  no_log: true
+
+- name: Add the data sources
+  ansible.builtin.template:
+    src: '{{ item.name }}.datasource.yml.j2'
+    dest: '{{ dashboards_provisioning }}/datasources/{{ item.name }}.yml'
+    owner: '{{ dashboards_user }}'
+    group: '{{ dashboards_user }}'
+    mode: '0644'
+  loop: '{{ dashboards_datasources }}'
+  loop_control:
+    label: '{{ item.name }}'
+  when: item.enabled | bool
+  register: dashboards_datasource
+
+- name: Remove the data sources without a token
+  ansible.builtin.file:
+    path: '{{ dashboards_provisioning }}/datasources/{{ item.name }}.yml'
+    state: absent
+  loop: '{{ dashboards_datasources }}'
+  loop_control:
+    label: '{{ item.name }}'
+  when: not item.enabled | bool
+
+- name: Tell Grafana where to find the dashboards
+  ansible.builtin.template:
+    src: dashboards.yml.j2
+    dest: '{{ dashboards_provisioning }}/dashboards/dashboards.yml'
+    owner: '{{ dashboards_user }}'
+    group: '{{ dashboards_user }}'
+    mode: '0644'
+  register: dashboards_provider
+
+# Grafana reads the changes of these files by itself, without a restart
+- name: Copy the dashboards
+  ansible.builtin.copy:
+    src: '{{ item }}'
+    dest: '{{ dashboards_provisioning }}/dashboards/{{ item | basename }}'
+    owner: '{{ dashboards_user }}'
+    group: '{{ dashboards_user }}'
+    mode: '0644'
+  loop: "{{ query('ansible.builtin.fileglob', role_path ~ '/files/dashboards/*.json') | sort }}"
+  loop_control:
+    label: '{{ item | basename }}'
+
+- name: Create the Grafana container
+  ansible.builtin.template:
+    src: grafana.container.j2
+    dest: '{{ dashboards_quadlets }}/grafana.container'
+    owner: '{{ dashboards_user }}'
+    group: '{{ dashboards_user }}'
+    mode: '0644'
+  register: dashboards_unit
+
+- name: Start Grafana
+  become: true
+  become_user: '{{ dashboards_user }}'
+  environment:
+    XDG_RUNTIME_DIR: /run/user/{{ dashboards_uid }}
+  block:
+    # Quadlet creates the volume as a dependency of this service.
+    # Grafana reads the data sources only on start.
+    - name: Start Grafana
+      ansible.builtin.systemd_service:
+        name: grafana.service
+        scope: user
+        state: >-
+          {{ 'restarted'
+             if dashboards_unit.changed or dashboards_env.changed
+                or dashboards_datasource.changed or dashboards_provider.changed
+             else 'started' }}
+        daemon_reload: true
+
+    # The image uses a rolling tag, so Podman can update it without our help
+    - name: Update the image of Grafana automatically
+      ansible.builtin.systemd_service:
+        name: podman-auto-update.timer
+        scope: user
+        enabled: true
+        state: started
+
+- name: Add the Grafana domain to Caddy
+  ansible.builtin.template:
+    src: grafana.caddy.j2
+    dest: /etc/caddy/sites/{{ dashboards_domain }}.caddy
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Reload Caddy

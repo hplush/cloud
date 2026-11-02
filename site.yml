@@ -70,6 +70,8 @@
     - api
     # Self-hosted Plausible Analytics with its PostgreSQL and ClickHouse
     - analytics
+    # Grafana with charts from the API of Slow Reader production
+    - dashboards
 
   tasks:
     - name: Configure web services

@@ -1,0 +1,15 @@
+---
+dashboards_home: /home/{{ dashboards_user }}
+dashboards_uid: '{{ ansible_facts.getent_passwd[dashboards_user][1] }}'
+dashboards_state: '{{ dashboards_home }}/.local/state'
+dashboards_quadlets: '{{ dashboards_home }}/.config/containers/systemd'
+# Grafana runs as its own user inside the container, which is a subordinate
+# ID on the host, so these files must be readable by all. They have no
+# secrets: the token comes from the environment.
+dashboards_provisioning: '{{ dashboards_home }}/provisioning'
+# Every data source has its own `NAME.datasource.yml.j2` template
+dashboards_datasources:
+  - name: analytics
+    enabled: '{{ dashboards_analytics_token | length > 0 }}'
+  - name: cockpit
+    enabled: '{{ dashboards_cockpit_token | length > 0 }}'
