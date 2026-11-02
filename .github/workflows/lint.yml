@@ -16,7 +16,9 @@ jobs:
       - name: Install Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
-          python-version: '3.x'
+          # ansible-core supports a new Python only some time after its
+          # release, so `3.x` breaks CI with every new Python
+          python-version: '3.14'
       - name: Install the linter with Ansible
         run: pip install -r requirements.txt
       - name: Install the collections used by the playbook
