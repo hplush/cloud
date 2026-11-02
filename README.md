@@ -405,7 +405,10 @@ Their passwords are in `/home/plausible/.local/state/secrets/`.
 Reset the Grafana password:
 
 ```sh
-sudo -u grafana podman exec -it grafana grafana cli admin reset-admin-password NEW_PASSWORD
+read -rs PASSWORD
+printf %s "$PASSWORD" | sudo -u grafana podman exec -i grafana \
+  grafana cli admin reset-admin-password --password-from-stdin
+unset PASSWORD
 ```
 
 Deploy manually by creating a request file:

@@ -1,6 +1,6 @@
 {
   "uid": "slowreader-scaleway",
-  "title": "Slow Reader: Scaleway",
+  "title": "Slow Reader: System",
   "description": "Production containers of Slow Reader from Scaleway Cockpit",
   "tags": [
     "slowreader",
