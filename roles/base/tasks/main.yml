@@ -99,6 +99,26 @@
     enabled: true
     state: started
 
+- name: Create the weekly reboot units
+  ansible.builtin.template:
+    src: '{{ item }}.j2'
+    dest: /etc/systemd/system/{{ item }}
+    owner: root
+    group: root
+    mode: '0644'
+  loop:
+    - reboot-if-needed.service
+    - reboot-if-needed.timer
+  register: base_reboot_units
+
+# Only the timer is started: starting the service would reboot right now
+- name: Reboot for a new kernel every Saturday
+  ansible.builtin.systemd_service:
+    name: reboot-if-needed.timer
+    enabled: true
+    state: "{{ 'restarted' if base_reboot_units.changed else 'started' }}"
+    daemon_reload: '{{ base_reboot_units.changed }}'
+
 - name: Limit the size of the system journal
   ansible.builtin.file:
     path: /etc/systemd/journald.conf.d

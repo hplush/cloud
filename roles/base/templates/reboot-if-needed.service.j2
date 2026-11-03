@@ -1,0 +1,11 @@
+# Managed by Ansible
+[Unit]
+Description=Reboot the server if an update needs it
+
+# `unattended-upgrades` creates this file when a new kernel or another
+# package requires a reboot, so most weeks the timer does nothing.
+ConditionPathExists=/run/reboot-required
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/systemctl reboot

@@ -22,11 +22,11 @@ Unattended-Upgrade::Remove-Unused-Kernel-Packages "true";
 Unattended-Upgrade::Remove-Unused-Dependencies "true";
 
 // We want as little downtime as possible, so the server never reboots
-// on its own. Livepatch fixes the running kernel, and `needrestart`
-// restarts the few services which still hold an old library, so an update
-// takes effect without a reboot.
+// right after an update. Livepatch fixes the running kernel, and
+// `needrestart` restarts the few services which still hold an old library,
+// so an update takes effect without a reboot.
 //
-// A reboot is still needed to switch to a new kernel. The login message
-// shows it as `*** System restart required ***`, and we do it by hand
-// during a calm hour.
+// A reboot is still needed to switch to a new kernel. The option below could
+// only reboot at the same hour every day, so `reboot-if-needed.timer` does it
+// once a week instead, on Saturday during a calm hour.
 Unattended-Upgrade::Automatic-Reboot "false";

@@ -339,20 +339,14 @@ Automatic updates:
 - `unattended-upgrades` installs packages nightly.
 - `needrestart` restarts services using old libraries.
 - Livepatch patches the running kernel.
+- The server reboots on Saturday at 04:00 UTC if a new kernel needs it.
 
-These never reboot the server; new kernels require a manual reboot.
-Check monthly. SSH logins show `*** System restart required ***` when
-needed. Inspect pending restarts:
+To reboot earlier:
 
 ```sh
 ssh ai@cloud.hplush.dev
 sudo needrestart -r l
-```
-
-Reboot to use the new kernel:
-
-```sh
-sudo reboot
+sudo reboot # if needed
 ```
 
 If the kernel needs no reboot, restart everything listed, including user

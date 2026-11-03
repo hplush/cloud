@@ -1,0 +1,14 @@
+# Managed by Ansible
+[Unit]
+Description=Reboot the server for a new kernel every Saturday
+
+[Timer]
+# The server is in UTC. 04:00 UTC on Saturday is midday in Asia, but night
+# in Europe and America, where most of our visitors are.
+OnCalendar=Sat *-*-* 04:00:00
+# A missed reboot should wait for the next Saturday instead of happening
+# right after the server starts at a random hour.
+Persistent=false
+
+[Install]
+WantedBy=timers.target
