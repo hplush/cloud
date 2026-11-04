@@ -148,8 +148,8 @@ the server and run in an automatically updated Node.js image.
    - Public: `ICMP`, `TCP 80`, `TCP 443`, `UDP 443` (HTTP/3 QUIC)
    - Admin IP only: `TCP 22`
 3. Add `A` and `AAAA` DNS records for `hplush.dev`.
-4. Add `CNAME` records for `cloud`, `api.cloud`, `lens`, and `dashboard` pointing
-   to `hplush.dev`.
+4. Add `CNAME` records for `cloud`, `api.cloud`, `lens`, and `dashboard`
+   pointing to `hplush.dev`.
 5. Update the system:
 
    ```sh
@@ -339,7 +339,8 @@ Automatic updates:
 - `unattended-upgrades` installs packages nightly.
 - `needrestart` restarts services using old libraries.
 - Livepatch patches the running kernel.
-- The server reboots on Saturday at 04:00 UTC if a new kernel needs it.
+- Every day at 04:00 UTC the server reboots for a new kernel, but only if
+  Livepatch can’t protect the running kernel.
 
 To reboot earlier:
 

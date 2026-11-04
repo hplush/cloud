@@ -1,11 +1,13 @@
 # Managed by Ansible
 [Unit]
-Description=Reboot the server if an update needs it
+Description=Reboot the server if Livepatch can't protect the kernel anymore
+After=snapd.service
 
 # `unattended-upgrades` creates this file when a new kernel or another
-# package requires a reboot, so most weeks the timer does nothing.
+# package requires a reboot. The script then reboots only if Livepatch
+# can't patch the running kernel, so most days the timer does nothing.
 ConditionPathExists=/run/reboot-required
 
 [Service]
 Type=oneshot
-ExecStart=/usr/bin/systemctl reboot
+ExecStart=/usr/local/sbin/reboot-if-needed

@@ -1,0 +1,64 @@
+#!/usr/bin/python3
+# Managed by Ansible
+#
+# Reboots the server for a new kernel, but only when Livepatch can no
+# longer protect the running one. Every new kernel package creates
+# `/run/reboot-required` (the systemd unit checks it), so that file alone
+# would reboot the server after almost every kernel update.
+
+import datetime
+import json
+import os
+import subprocess
+import sys
+
+LIVEPATCH = '/snap/bin/canonical-livepatch'
+# Reboot this many days before Livepatch stops patching the running kernel
+UPGRADE_MARGIN = datetime.timedelta(days=2)
+
+
+def reboot_reason():
+    try:
+        output = subprocess.run(
+            [LIVEPATCH, 'status', '--format', 'json'],
+            capture_output=True,
+            check=True,
+            text=True,
+        ).stdout
+        kernels = json.loads(output).get('Status') or []
+    except (OSError, subprocess.CalledProcessError, ValueError) as error:
+        # Without Livepatch nothing patches the running kernel
+        return f'Livepatch status is unavailable: {error}'
+
+    kernel = next((k for k in kernels if k.get('Running')), None)
+    if kernel is None:
+        return 'Livepatch does not report the running kernel'
+    name = kernel.get('Kernel', 'the running kernel')
+
+    supported = kernel.get('Supported')
+    if supported != 'supported':
+        return f'Livepatch does not support {name}: {supported}'
+
+    state = (kernel.get('Livepatch') or {}).get('State') or ''
+    if 'fail' in state:
+        return f'Livepatch failed on {name}: {state}'
+
+    upgrade = kernel.get('UpgradeRequiredDate')
+    if upgrade:
+        try:
+            deadline = datetime.date.fromisoformat(upgrade[:10])
+        except ValueError:
+            return f'Livepatch returned unknown upgrade date: {upgrade}'
+        if deadline - datetime.date.today() <= UPGRADE_MARGIN:
+            return f'Livepatch requires a new kernel by {deadline}'
+
+    return None
+
+
+reason = reboot_reason()
+if reason is None:
+    print('Livepatch protects the running kernel, no reboot is needed')
+    sys.exit(0)
+
+print(f'{reason}, rebooting', flush=True)
+os.execv('/usr/bin/systemctl', ['systemctl', 'reboot'])

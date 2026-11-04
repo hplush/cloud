@@ -26,7 +26,9 @@ Unattended-Upgrade::Remove-Unused-Dependencies "true";
 // `needrestart` restarts the few services which still hold an old library,
 // so an update takes effect without a reboot.
 //
-// A reboot is still needed to switch to a new kernel. The option below could
-// only reboot at the same hour every day, so `reboot-if-needed.timer` does it
-// once a week instead, on Saturday during a calm hour.
+// A reboot is still needed when Livepatch can't patch the running kernel.
+// The option below would reboot after every new kernel package, so
+// `reboot-if-needed.timer` checks Livepatch every night at a calm hour
+// and reboots only when Livepatch stops supporting the kernel, fails,
+// or requires a kernel upgrade within 2 days.
 Unattended-Upgrade::Automatic-Reboot "false";
