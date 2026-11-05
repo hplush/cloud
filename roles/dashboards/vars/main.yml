@@ -9,7 +9,11 @@ dashboards_quadlets: '{{ dashboards_home }}/.config/containers/systemd'
 dashboards_provisioning: '{{ dashboards_home }}/provisioning'
 # Every data source has its own `NAME.datasource.yml.j2` template
 dashboards_datasources:
-  - name: analytics
-    enabled: '{{ dashboards_analytics_token | length > 0 }}'
-  - name: cockpit
-    enabled: '{{ dashboards_cockpit_token | length > 0 }}'
+  - name: metrics
+    enabled: '{{ dashboards_metrics_token | length > 0 }}'
+# Every alerting file has its own `NAME.alerting.yml.j2` template
+dashboards_alerting:
+  - name: rules
+    enabled: '{{ dashboards_metrics_token | length > 0 }}'
+  - name: telegram
+    enabled: '{{ dashboards_telegram_token | length > 0 }}'

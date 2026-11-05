@@ -19,6 +19,8 @@
       mode: '0755'
     - path: '{{ dashboards_provisioning }}/dashboards'
       mode: '0755'
+    - path: '{{ dashboards_provisioning }}/alerting'
+      mode: '0755'
 
 # The secrets never leave the server: Ansible generates them on the first
 # run and keeps the files after it
@@ -102,6 +104,28 @@
     label: '{{ item.name }}'
   when: not item.enabled | bool
 
+- name: Add the alerts
+  ansible.builtin.template:
+    src: '{{ item.name }}.alerting.yml.j2'
+    dest: '{{ dashboards_provisioning }}/alerting/{{ item.name }}.yml'
+    owner: '{{ dashboards_user }}'
+    group: '{{ dashboards_user }}'
+    mode: '0644'
+  loop: '{{ dashboards_alerting }}'
+  loop_control:
+    label: '{{ item.name }}'
+  when: item.enabled | bool
+  register: dashboards_alerts
+
+- name: Remove the alerts without a token
+  ansible.builtin.file:
+    path: '{{ dashboards_provisioning }}/alerting/{{ item.name }}.yml'
+    state: absent
+  loop: '{{ dashboards_alerting }}'
+  loop_control:
+    label: '{{ item.name }}'
+  when: not item.enabled | bool
+
 - name: Tell Grafana where to find the dashboards
   ansible.builtin.template:
     src: dashboards.yml.j2
@@ -139,7 +163,7 @@
     XDG_RUNTIME_DIR: /run/user/{{ dashboards_uid }}
   block:
     # Quadlet creates the volume as a dependency of this service.
-    # Grafana reads the data sources only on start.
+    # Grafana reads the data sources and alerts only on start.
     - name: Start Grafana
       ansible.builtin.systemd_service:
         name: grafana.service
@@ -148,6 +172,7 @@
           {{ 'restarted'
              if dashboards_unit.changed or dashboards_env.changed
                 or dashboards_datasource.changed or dashboards_provider.changed
+                or dashboards_alerts.changed
              else 'started' }}
         daemon_reload: true
 

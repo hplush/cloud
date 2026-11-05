@@ -83,14 +83,13 @@ of Plausible; check it before changing them.
 Grafana runs as one container of the `grafana` user, with SQLite
 in a volume. Its image uses the `latest` tag and updates automatically.
 
-It loads JSON from the custom API of Slow Reader production through
-the [Infinity](https://grafana.com/grafana/plugins/yesoreyeram-infinity-datasource/)
-plugin. The API accepts only a Bearer token and only the IPv4 and IPv6
-addresses of this server.
+It reads VictoriaMetrics on the Slow Reader server with the built-in
+Prometheus data source: `Slow Reader Server` for server metrics and
+`Slow Reader App` for users and events.
 
-CPU, memory, status, and instances of the production containers come
-from [Scaleway Cockpit](https://www.scaleway.com/en/docs/cockpit/)
-with the built-in Prometheus data source.
+Alerts go to Telegram (`dashboards_telegram_token` and
+`dashboards_telegram_chat`). Rules are in
+[`rules.alerting.yml.j2`](./roles/dashboards/templates/rules.alerting.yml.j2).
 
 ### Pull Request Previews
 

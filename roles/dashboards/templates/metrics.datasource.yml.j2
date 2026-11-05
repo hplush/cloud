@@ -1,0 +1,27 @@
+# Managed by Ansible
+apiVersion: 1
+
+datasources:
+{% for source in [
+  {'name': 'Slow Reader Server', 'uid': 'slowreader-server', 'path': ''},
+  {'name': 'Slow Reader App', 'uid': 'slowreader-app', 'path': '/product'}
+] %}
+  # VictoriaMetrics keeps server metrics for 1 year and app metrics
+  # on /product for 10 years
+  - name: {{ source.name }}
+    # Dashboards and alerts refer to the data source by it
+    uid: {{ source.uid }}
+    type: prometheus
+    url: {{ dashboards_metrics_url }}{{ source.path }}
+    # Changes go through this repository and not through the UI
+    editable: false
+    jsonData:
+      prometheusType: Prometheus
+      # The server scrapes every minute
+      timeInterval: 1m
+      httpHeaderName1: Authorization
+    secureJsonData:
+      # Grafana replaces it with the variable from the environment file,
+      # so the token is not in this file, which every user can read
+      httpHeaderValue1: Bearer ${SLOWREADER_METRICS_TOKEN}
+{% endfor %}

@@ -1,0 +1,19 @@
+# Managed by Ansible
+apiVersion: 1
+
+contactPoints:
+  - orgId: 1
+    name: Telegram
+    receivers:
+      - uid: telegram
+        type: telegram
+        settings:
+          chatid: '{{ dashboards_telegram_chat }}'
+          # Grafana replaces it with the variable from the environment file
+          bottoken: ${TELEGRAM_TOKEN}
+
+policies:
+  - orgId: 1
+    receiver: Telegram
+    group_by:
+      - alertname

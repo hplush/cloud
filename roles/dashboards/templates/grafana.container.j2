@@ -26,17 +26,14 @@ Environment=GF_ANALYTICS_CHECK_FOR_PLUGIN_UPDATES=false
 Environment=GF_NEWS_NEWS_FEED_ENABLED=false
 # The root is read-only, so the logs go only to the journal
 Environment=GF_LOG_MODE=console
-# Infinity plugin loads JSON from any HTTP API. Grafana installs it
-# into the volume on start.
-Environment=GF_PLUGINS_PREINSTALL_SYNC=yesoreyeram-infinity-datasource
-# The admin password, the encryption key, and the token of the API
+# The admin password, the encryption key, and the tokens
 # are in a file, so they stay out of this unit, which every user
 # of the server can read
 EnvironmentFile={{ dashboards_state }}/secrets/grafana.env
 # SQLite database, plugins, and sessions. The image runs as its own
 # non-root user, and Podman gives a new volume to this user.
 Volume=grafana.volume:/var/lib/grafana
-# Data sources and dashboards come from this repository: we have no backups,
+# Data sources, dashboards, and alerts come from this repository: we have no backups,
 # so everything only in the database can be lost
 Volume={{ dashboards_provisioning }}:/etc/grafana/provisioning:ro
 ReadOnly=true

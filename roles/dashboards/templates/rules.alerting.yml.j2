@@ -1,0 +1,70 @@
+# Managed by Ansible
+apiVersion: 1
+
+{% set rules = [
+  {'uid': 'server-down', 'title': 'Server doesn’t answer', 'source': 'slowreader-server',
+   'expr': 'up{job="node"}', 'op': 'lt', 'value': 1, 'for': '5m',
+   'help': 'Reset the server in Hetzner console'},
+  {'uid': 'app-down', 'title': 'App doesn’t answer', 'source': 'slowreader-app',
+   'expr': 'max(up{job="app"})', 'op': 'lt', 'value': 1, 'for': '5m',
+   'help': 'Check containers by Accidents section of slowreader/infra/README.md'},
+  {'uid': 'server-errors', 'title': 'Server errors', 'source': 'slowreader-server',
+   'expr': 'sum by (host) (rate(caddy_http_request_duration_seconds_count{code=~"5.."}[5m]))',
+   'op': 'gt', 'value': 0.1, 'for': '5m', 'help': 'Check logs of the containers'},
+  {'uid': 'disk', 'title': 'Disk is almost full', 'source': 'slowreader-server',
+   'expr': 'node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"}',
+   'op': 'lt', 'value': 0.2, 'for': '30m', 'help': 'Free the disk or take a bigger server'},
+  {'uid': 'memory', 'title': 'Memory is almost full', 'source': 'slowreader-server',
+   'expr': 'node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes',
+   'op': 'lt', 'value': 0.1, 'for': '10m', 'help': 'Check which process takes the memory'},
+  {'uid': 'backup-failed', 'title': 'Backup or restore test failed', 'source': 'slowreader-server',
+   'expr': 'slowreader_backup_run_timestamp_seconds - slowreader_backup_success_timestamp_seconds',
+   'op': 'gt', 'value': 0, 'for': '0s', 'help': 'Check journalctl -u pgbackrest@JOB or -u restore-test'},
+  {'uid': 'backup-old', 'title': 'Backup is too old', 'source': 'slowreader-server',
+   'expr': 'time() - slowreader_backup_success_timestamp_seconds{job=~"full|diff"}',
+   'op': 'gt', 'value': 172800, 'for': '1h', 'help': 'Check pgbackrest timers'},
+  {'uid': 'restore-old', 'title': 'Restore test is too old', 'source': 'slowreader-server',
+   'expr': 'time() - slowreader_backup_success_timestamp_seconds{job="restore-test"}',
+   'op': 'gt', 'value': 691200, 'for': '1h', 'help': 'Check restore-test.timer'},
+  {'uid': 'crashes', 'title': 'Many app crashes', 'source': 'slowreader-app',
+   'expr': 'sum(increase(slowreader_events_total{name="fatal-crash"}[1h]))',
+   'op': 'gt', 'value': 10, 'for': '0s', 'help': 'Check the last release'},
+] %}
+groups:
+  - orgId: 1
+    name: Slow Reader
+    folder: Slow Reader
+    interval: 1m
+    rules:
+{% for rule in rules %}
+      - uid: slowreader-{{ rule.uid }}
+        title: {{ rule.title }}
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: {{ rule.source }}
+            model:
+              refId: A
+              expr: '{{ rule.expr }}'
+              instant: true
+          - refId: B
+            datasourceUid: __expr__
+            model:
+              refId: B
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator:
+                    type: {{ rule.op }}
+                    params:
+                      - {{ rule.value }}
+        # Frozen server sends nothing, so missing data is an alert too
+        noDataState: Alerting
+        execErrState: Alerting
+        for: {{ rule['for'] }}
+        annotations:
+          summary: {{ rule.help }}
+{% endfor %}
