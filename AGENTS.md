@@ -1,1 +1,2 @@
 - Always write the registry in the image name, like `docker.io/library/postgres:18` and not `postgres:18`
+- Never connect to servers by SSH (like `cloud.hplush.dev`). Ask the user to run commands on the server instead.
