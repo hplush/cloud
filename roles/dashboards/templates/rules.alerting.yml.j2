@@ -10,7 +10,8 @@ apiVersion: 1
    'help': 'Check containers by Accidents section of slowreader/infra/README.md'},
   {'uid': 'server-errors', 'title': 'Server errors', 'source': 'slowreader-server',
    'expr': 'sum by (host) (rate(caddy_http_request_duration_seconds_count{code=~"5.."}[5m]))',
-   'op': 'gt', 'value': 0.1, 'for': '5m', 'help': 'Check logs of the containers'},
+   'op': 'gt', 'value': 0.1, 'for': '5m', 'help': 'Check logs of the containers',
+   'nodata': 'OK'},
   {'uid': 'disk', 'title': 'Disk is almost full', 'source': 'slowreader-server',
    'expr': 'node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"}',
    'op': 'lt', 'value': 0.2, 'for': '30m', 'help': 'Free the disk or take a bigger server'},
@@ -21,14 +22,15 @@ apiVersion: 1
    'expr': 'slowreader_backup_run_timestamp_seconds - slowreader_backup_success_timestamp_seconds',
    'op': 'gt', 'value': 0, 'for': '0s', 'help': 'Check journalctl -u pgbackrest@JOB or -u restore-test'},
   {'uid': 'backup-old', 'title': 'Backup is too old', 'source': 'slowreader-server',
-   'expr': 'time() - slowreader_backup_success_timestamp_seconds{job=~"full|diff"}',
+   'expr': 'time() - max(slowreader_backup_success_timestamp_seconds{exported_job=~"full|diff"})',
    'op': 'gt', 'value': 172800, 'for': '1h', 'help': 'Check pgbackrest timers'},
   {'uid': 'restore-old', 'title': 'Restore test is too old', 'source': 'slowreader-server',
-   'expr': 'time() - slowreader_backup_success_timestamp_seconds{job="restore-test"}',
+   'expr': 'time() - slowreader_backup_success_timestamp_seconds{exported_job="restore-test"}',
    'op': 'gt', 'value': 691200, 'for': '1h', 'help': 'Check restore-test.timer'},
   {'uid': 'crashes', 'title': 'Many app crashes', 'source': 'slowreader-app',
    'expr': 'sum(increase(slowreader_events_total{name="fatal-crash"}[1h]))',
-   'op': 'gt', 'value': 10, 'for': '0s', 'help': 'Check the last release'},
+   'op': 'gt', 'value': 10, 'for': '0s', 'help': 'Check the last release',
+   'nodata': 'OK'},
 ] %}
 groups:
   - orgId: 1
@@ -61,8 +63,9 @@ groups:
                     type: {{ rule.op }}
                     params:
                       - {{ rule.value }}
-        # Frozen server sends nothing, so missing data is an alert too
-        noDataState: Alerting
+        # Frozen server sends nothing, so missing data is an alert too.
+        # Except counters of errors: they have no data when there are no errors.
+        noDataState: {{ rule.nodata | default('Alerting') }}
         execErrState: Alerting
         for: {{ rule['for'] }}
         annotations:

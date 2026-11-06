@@ -405,7 +405,7 @@
             "uid": "slowreader-server"
           },
           "expr": "(time() - slowreader_backup_success_timestamp_seconds) / 3600",
-          "legendFormat": "{{job}}",
+          "legendFormat": "{{exported_job}}",
           "instant": false,
           "range": true
         }
