@@ -5,6 +5,8 @@ providers:
   # JSON files from `roles/dashboards/files/dashboards/`
   - name: repository
     type: file
+    # The same folder as the alerts in `rules.alerting.yml.j2`
+    folder: Slow Reader
     # Changes go through this repository: the UI can only save a copy
     allowUiUpdates: false
     # A dashboard removed from the repository disappears from Grafana too
