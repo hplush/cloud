@@ -18,6 +18,7 @@ prefix: preview-
 
 container_port: 2553
 health_path: /health
+health_cmd: '["/usr/bin/httpcheck", "http://127.0.0.1:2553/health"]'
 # Chainguard’s nginx keeps its temporary files here and not in /tmp
 writable:
   - /var/lib/nginx/tmp

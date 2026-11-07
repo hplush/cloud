@@ -126,6 +126,12 @@ GlobalArgs=--runtime-flag=ignore-cgroups
 # and the firewall rules of its user, so it reaches nothing of this server.
 GlobalArgs=--runtime-flag=network=host
 HealthOnFailure=kill
+# Podman ignores \`HEALTHCHECK\` of OCI images and then refuses to start
+# the container because of \`HealthOnFailure\`, so the check is in the config
+HealthCmd={{ preview.health_cmd | mandatory('Set health_cmd for ' ~ preview.domain) }}
+HealthInterval=30s
+HealthTimeout=3s
+HealthRetries=3
 
 [Service]
 Restart=always

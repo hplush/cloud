@@ -18,6 +18,7 @@ prefix: preview-
 
 container_port: 8000
 health_path: /
+health_cmd: '["/bin/httpcheck", "http://127.0.0.1:8000/"]'
 # Chainguard’s nginx keeps its temporary files here and not in /tmp
 writable:
   - /var/lib/nginx/tmp

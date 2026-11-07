@@ -37,18 +37,17 @@ Tmpfs={{ path }}
 {% endfor %}
 DropCapability=all
 NoNewPrivileges=true
-# All our images define a `HEALTHCHECK`, and Podman runs it on its own.
 # `Restart=always` alone only covers a crash, while an application can also
 # hang: `kill` stops such a container, and systemd starts it again.
 HealthOnFailure=kill
-{% if app.health_cmd is defined %}
-# Podman reads `HEALTHCHECK` only from Docker-format images. An image with
-# attestations is always OCI, so its config sets the command here instead.
-HealthCmd={{ app.health_cmd }}
+# Podman reads `HEALTHCHECK` only from Docker-format images and ignores it
+# in OCI ones. An image becomes OCI after any change in its build (like
+# attestations), and then Podman refuses to start the container at all
+# because of `HealthOnFailure`. So the check is always in the config.
+HealthCmd={{ app.health_cmd | mandatory('Set health_cmd for ' ~ app.domain) }}
 HealthInterval=30s
 HealthTimeout=3s
 HealthRetries=3
-{% endif %}
 
 [Service]
 Restart=always

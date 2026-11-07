@@ -47,8 +47,8 @@ its own image, containers, domain, and deployment.
 Web services use public Podman images. Containers are read-only, have no
 capabilities, and limit memory, CPU, and processes to protect the server.
 
-Images should define a `HEALTHCHECK` (or custom `health_cmd` for OCI images).
-Podman kills unresponsive containers; systemd restarts them. Old deployment
+Every website and preview config must set `health_cmd`. Podman ignores
+`HEALTHCHECK` of OCI images, so we never rely on the image. Podman kills unresponsive containers; systemd restarts them. Old deployment
 images are removed nightly.
 
 After publishing an image:

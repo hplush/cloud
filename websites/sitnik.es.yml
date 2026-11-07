@@ -26,3 +26,4 @@ ports:
 # `/` answers with a redirect to the language, so we check the same path
 # as the `HEALTHCHECK` of the image
 health_path: /en/
+health_cmd: '["/bin/httpcheck", "http://127.0.0.1:8000/en/"]'
