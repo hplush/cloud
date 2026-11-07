@@ -15,3 +15,4 @@ ports:
   blue: 8061
   green: 8062
 health_path: /
+health_cmd: '["/bin/httpcheck", "http://127.0.0.1:8000/"]'
