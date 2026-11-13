@@ -21,6 +21,35 @@
     group: '{{ service.user }}'
     mode: '0755'
 
+# The website config has only the names of the encrypted variables from
+# `group_vars/all.yml`. Containers take the values from this file, so they
+# stay out of the unit files, which every user of the server can read.
+#
+# `no_log` of the next task would hide which variable is missing.
+- name: Check the secrets of {{ app.domain }}
+  ansible.builtin.assert:
+    that: lookup('ansible.builtin.vars', item, default='') | string | length > 0
+    fail_msg: Encrypt {{ item }} and add it to group_vars/all.yml
+    quiet: true
+  loop: '{{ (app.secrets | default({})).values() }}'
+
+- name: Create the secrets file for {{ app.domain }}
+  ansible.builtin.template:
+    src: secrets.env.j2
+    dest: '{{ web_state }}/{{ app.name }}/secrets.env'
+    owner: '{{ service.user }}'
+    group: '{{ service.user }}'
+    mode: '0600'
+  when: app.secrets is defined
+  no_log: true
+  register: web_secrets
+
+- name: Remove the old secrets file of {{ app.domain }}
+  ansible.builtin.file:
+    path: '{{ web_state }}/{{ app.name }}/secrets.env'
+    state: absent
+  when: app.secrets is not defined
+
 - name: Create the blue and green containers for {{ app.domain }}
   ansible.builtin.template:
     src: web.container.j2
@@ -110,7 +139,10 @@
       ansible.builtin.systemd_service:
         name: '{{ app.name }}-{{ color }}.service'
         scope: user
-        state: "{{ 'restarted' if web_containers.changed else 'started' }}"
+        state: >-
+          {{ 'restarted'
+             if web_containers.changed or web_secrets.changed
+             else 'started' }}
         daemon_reload: true
       loop:
         - blue

@@ -44,6 +44,11 @@ apps:
       BEHIND_BALANCER: '1'
       # Passkeys and CORS work only for the web client on this origin
       WEB_ORIGIN: https://dev.slowreader.app
+    # Env names with the names of the encrypted variables
+    # from `group_vars/all.yml`, so the values stay out of this file
+    secrets:
+      TELEGRAM_API_ID: slowreader_telegram_api_id
+      TELEGRAM_API_HASH: slowreader_telegram_api_hash
 
   # CORS proxy, which the web client uses to load RSS feeds. It has its own
   # domain, so proxied content can’t access the app’s storage, and the server

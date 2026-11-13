@@ -25,6 +25,11 @@ EnvironmentFile={{ web_state }}/database/url.env
 {% endif %}
 Environment="{{ name }}={{ value | replace('\\', '\\\\') | replace('"', '\\"') }}"
 {% endfor %}
+{% if app.secrets is defined %}
+# Secrets from the encrypted variables. The app takes them from the file,
+# so they stay out of this unit too.
+EnvironmentFile={{ web_state }}/{{ app.name }}/secrets.env
+{% endif %}
 # A website serves files: it needs no capability, and Podman mounts
 # a tmpfs over /run, /tmp, and /var/tmp for a read-only image anyway.
 ReadOnly=true
