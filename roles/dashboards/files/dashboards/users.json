@@ -349,7 +349,7 @@
       "gridPos": {
         "x": 0,
         "y": 13,
-        "w": 8,
+        "w": 12,
         "h": 9
       },
       "id": 7
@@ -398,9 +398,9 @@
         "overrides": []
       },
       "gridPos": {
-        "x": 8,
+        "x": 12,
         "y": 13,
-        "w": 8,
+        "w": 12,
         "h": 9
       },
       "id": 8
@@ -449,12 +449,114 @@
         "overrides": []
       },
       "gridPos": {
-        "x": 16,
-        "y": 13,
+        "x": 0,
+        "y": 22,
         "w": 8,
         "h": 9
       },
       "id": 9
+    },
+    {
+      "type": "piechart",
+      "title": "Clients of MAU",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "slowreader-app"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "slowreader-app"
+          },
+          "expr": "max by (clients) (slowreader_monthly_users_by_clients)",
+          "legendFormat": "{{clients}}",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": true
+        },
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true,
+          "values": [
+            "value"
+          ]
+        },
+        "pieType": "pie"
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 22,
+        "w": 8,
+        "h": 9
+      },
+      "id": 12
+    },
+    {
+      "type": "piechart",
+      "title": "Platforms of MAU",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "slowreader-app"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "slowreader-app"
+          },
+          "expr": "max by (platforms) (slowreader_monthly_users_by_platforms)",
+          "legendFormat": "{{platforms}}",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": true
+        },
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true,
+          "values": [
+            "value"
+          ]
+        },
+        "pieType": "pie"
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 22,
+        "w": 8,
+        "h": 9
+      },
+      "id": 13
     },
     {
       "type": "timeseries",
@@ -499,7 +601,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 22,
+        "y": 31,
         "w": 24,
         "h": 9
       },
@@ -553,7 +655,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 31,
+        "y": 40,
         "w": 24,
         "h": 9
       },
