@@ -318,7 +318,9 @@
             "pointSize": 4,
             "showPoints": "auto"
           },
-          "unit": "percentunit"
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1
         },
         "overrides": []
       },
