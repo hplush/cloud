@@ -32,6 +32,27 @@ apiVersion: 1
    'op': 'gt', 'value': 10, 'for': '0s', 'help': 'Check the last release',
    'nodata': 'OK'},
 ] %}
+# The last weekly run of Slow Reader benchmark against the median
+# of 4 weeks before it
+{% for limit, metrics in [
+  (1.1, {'dom_size': 'DOM size', 'documents': 'documents', 'listeners': 'listeners',
+         'storage_bytes': 'storage', 'storage_growth_bytes': 'storage growth'}),
+  (1.3, {'duration_seconds': 'duration', 'loader_seconds': 'loaders',
+         'start_seconds': 'start', 'fill_seconds': 'database filling',
+         'heap_bytes': 'JS heap', 'renderer_bytes': 'renderer memory'}),
+] %}
+{% for metric, name in metrics.items() %}
+{% set _ = rules.append({
+  'uid': 'bench-' ~ metric, 'title': 'Benchmark ' ~ name ~ ' became worse',
+  'source': 'slowreader-app',
+  'expr': 'max by (scenario, loader, type) (last_over_time(slowreader_benchmark_' ~ metric ~ '[1d]))'
+    ~ ' / max by (scenario, loader, type) (quantile_over_time(0.5, slowreader_benchmark_' ~ metric ~ '[28d] offset 1d))',
+  'op': 'gt', 'value': limit, 'for': '0s',
+  'help': 'Check https://' ~ dashboards_domain ~ '/d/slowreader-benchmark',
+  'nodata': 'OK',
+}) %}
+{% endfor %}
+{% endfor %}
 groups:
   - orgId: 1
     name: Slow Reader

@@ -17,3 +17,12 @@ policies:
     receiver: Telegram
     group_by:
       - alertname
+    routes:
+      # All benchmark rules from `rules.alerting.yml.j2` in one message.
+      # The benchmark runs once a week, so the message repeats once a week.
+      - receiver: Telegram
+        object_matchers:
+          - ['alertname', '=~', 'Benchmark .*']
+        group_by:
+          - grafana_folder
+        repeat_interval: 1w

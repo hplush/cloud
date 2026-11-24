@@ -85,7 +85,8 @@ in a volume. Its image uses the `latest` tag and updates automatically.
 
 It reads VictoriaMetrics on the Slow Reader server with the built-in
 Prometheus data source: `Slow Reader Server` for server metrics and
-`Slow Reader App` for users and events.
+`Slow Reader App` for users, events, and the weekly
+[UI benchmark](https://github.com/hplush/slowreader/blob/main/docs/development/benchmark.md#weekly-run).
 
 Alerts go to Telegram (`dashboards_telegram_token` and
 `dashboards_telegram_chat`). Rules are in
