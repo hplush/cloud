@@ -32,21 +32,26 @@ apiVersion: 1
    'op': 'gt', 'value': 10, 'for': '0s', 'help': 'Check the last release',
    'nodata': 'OK'},
 ] %}
-# The last weekly run of Slow Reader benchmark against the median
-# of 4 weeks before it
+# The last weekly run of Slow Reader benchmark against the median of 4 weeks
+# before it on the same CPU, since CI runners have CPUs of different speed.
+# Time also needs 50 ms of difference: scenarios of a few frames jump by 30%
+# without a reason.
 {% for limit, metrics in [
-  (1.1, {'dom_size': 'DOM size', 'documents': 'documents', 'listeners': 'listeners',
+  (1.1, {'dom_size': 'DOM size', 'listeners': 'listeners',
          'storage_bytes': 'storage', 'storage_growth_bytes': 'storage growth'}),
   (1.3, {'duration_seconds': 'duration', 'loader_seconds': 'loaders',
          'start_seconds': 'start', 'fill_seconds': 'database filling',
-         'heap_bytes': 'JS heap', 'renderer_bytes': 'renderer memory'}),
+         'renderer_bytes': 'renderer memory'}),
 ] %}
 {% for metric, name in metrics.items() %}
+{% set by = 'max by (scenario, loader, type, cpu) ' %}
+{% set last = by ~ '(last_over_time(slowreader_benchmark_' ~ metric ~ '[1d]))' %}
+{% set before = by ~ '(quantile_over_time(0.5, slowreader_benchmark_' ~ metric ~ '[28d] offset 1d))' %}
 {% set _ = rules.append({
   'uid': 'bench-' ~ metric, 'title': 'Benchmark ' ~ name ~ ' became worse',
   'source': 'slowreader-app',
-  'expr': 'max by (scenario, loader, type) (last_over_time(slowreader_benchmark_' ~ metric ~ '[1d]))'
-    ~ ' / max by (scenario, loader, type) (quantile_over_time(0.5, slowreader_benchmark_' ~ metric ~ '[28d] offset 1d))',
+  'expr': '(' ~ last ~ ' / ' ~ before ~ ')'
+    ~ (' and (' ~ last ~ ' - ' ~ before ~ ' > 0.05)' if '_seconds' in metric else ''),
   'op': 'gt', 'value': limit, 'for': '0s',
   'help': 'Check https://' ~ dashboards_domain ~ '/d/slowreader-benchmark',
   'nodata': 'OK',
