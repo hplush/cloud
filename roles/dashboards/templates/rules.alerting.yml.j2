@@ -41,6 +41,7 @@ apiVersion: 1
          'storage_bytes': 'storage', 'storage_growth_bytes': 'storage growth'}),
   (1.3, {'duration_seconds': 'duration', 'loader_seconds': 'loaders',
          'start_seconds': 'start', 'fill_seconds': 'database filling',
+         'upload_seconds': 'upload', 'upload_sync_seconds': 'upload sync',
          'renderer_bytes': 'renderer memory'}),
 ] %}
 {% for metric, name in metrics.items() %}
